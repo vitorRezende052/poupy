@@ -5,7 +5,10 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
+from pytestqt.qtbot import QtBot
+
 from poupy.services.gastos import GastoService
+from poupy.ui.graficos import GraficosWidget
 
 
 def test_gastos_por_categoria_ordenado_desc(conn: sqlite3.Connection) -> None:
@@ -33,3 +36,26 @@ def test_evolucao_mensal_preenche_meses_vazios(conn: sqlite3.Connection) -> None
     assert como_dict["2026-07"] == 3000
     # Cobre o intervalo continuo do primeiro mes ate hoje.
     assert [mes for mes, _ in evolucao] == service.meses_disponiveis()
+
+
+def test_graficos_widget_popula(conn: sqlite3.Connection, qtbot: QtBot) -> None:
+    service = GastoService(conn)
+    service.registrar_gasto(1000, date.today(), 1, None)
+    service.registrar_gasto(2000, date.today(), 2, None)
+
+    widget = GraficosWidget(service)
+    qtbot.addWidget(widget)
+    widget.atualizar(date.today().strftime("%Y-%m"))
+
+    # Barras de categoria: uma BarGraphItem foi adicionada ao grafico.
+    import pyqtgraph as pg
+
+    barras = [
+        item
+        for item in widget._categorias.getPlotItem().items
+        if isinstance(item, pg.BarGraphItem)
+    ]
+    assert len(barras) == 1
+    # Evolucao: pelo menos uma curva plotada.
+    assert widget._evolucao.getPlotItem().listDataItems()
+

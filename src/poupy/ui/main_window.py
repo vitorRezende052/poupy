@@ -25,6 +25,7 @@ from poupy.services.gastos import GastoService
 from poupy.ui.categorias_dialog import CategoriasDialog
 from poupy.ui.format import format_competencia, format_moeda
 from poupy.ui.gasto_dialog import GastoDialog
+from poupy.ui.graficos import GraficosWidget
 
 _COLUNAS = ("Data", "Categoria", "Descricao", "Valor")
 
@@ -35,7 +36,7 @@ class MainWindow(QMainWindow):
         self._service = service
         self._ano_mes = date.today().strftime("%Y-%m")
         self.setWindowTitle("Poupy")
-        self.resize(720, 560)
+        self.resize(880, 780)
 
         self._btn_anterior = QToolButton()
         self._btn_anterior.setText("‹")
@@ -78,6 +79,8 @@ class MainWindow(QMainWindow):
         cabecalho = self._tabela.horizontalHeader()
         cabecalho.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
+        self._graficos = GraficosWidget(self._service)
+
         layout = QVBoxLayout()
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
@@ -85,6 +88,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._total)
         layout.addLayout(acoes)
         layout.addWidget(self._tabela, 1)
+        layout.addWidget(self._graficos)
 
         central = QWidget()
         central.setLayout(layout)
@@ -158,3 +162,5 @@ class MainWindow(QMainWindow):
             )
             for coluna, item in enumerate(celulas):
                 self._tabela.setItem(linha, coluna, item)
+
+        self._graficos.atualizar(self._ano_mes)
