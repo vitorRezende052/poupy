@@ -26,6 +26,20 @@ class GastoService:
             raise ValueError("O nome da categoria nao pode ser vazio.")
         return repository.criar_categoria(self._conn, nome_limpo)
 
+    def renomear_categoria(self, categoria_id: int, nome: str) -> None:
+        nome_limpo = nome.strip()
+        if not nome_limpo:
+            raise ValueError("O nome da categoria nao pode ser vazio.")
+        try:
+            repository.renomear_categoria(self._conn, categoria_id, nome_limpo)
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(f"Ja existe uma categoria chamada '{nome_limpo}'.") from erro
+
+    def excluir_categoria(self, categoria_id: int) -> None:
+        if repository.categoria_em_uso(self._conn, categoria_id):
+            raise ValueError("Nao e possivel excluir uma categoria com gastos vinculados.")
+        repository.excluir_categoria(self._conn, categoria_id)
+
     def registrar_gasto(
         self,
         valor_centavos: int,

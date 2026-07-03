@@ -24,6 +24,23 @@ def criar_categoria(conn: sqlite3.Connection, nome: str) -> Categoria:
     return Categoria(id=int(cursor.lastrowid or 0), nome=nome)
 
 
+def renomear_categoria(conn: sqlite3.Connection, categoria_id: int, nome: str) -> None:
+    conn.execute("UPDATE categoria SET nome = ? WHERE id = ?", (nome, categoria_id))
+    conn.commit()
+
+
+def excluir_categoria(conn: sqlite3.Connection, categoria_id: int) -> None:
+    conn.execute("DELETE FROM categoria WHERE id = ?", (categoria_id,))
+    conn.commit()
+
+
+def categoria_em_uso(conn: sqlite3.Connection, categoria_id: int) -> bool:
+    linha = conn.execute(
+        "SELECT 1 FROM gasto WHERE categoria_id = ? LIMIT 1", (categoria_id,)
+    ).fetchone()
+    return linha is not None
+
+
 def inserir_gasto(
     conn: sqlite3.Connection,
     valor_centavos: int,

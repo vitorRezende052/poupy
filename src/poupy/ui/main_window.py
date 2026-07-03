@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from poupy.models import Gasto
 from poupy.services.gastos import GastoService
+from poupy.ui.categorias_dialog import CategoriasDialog
 from poupy.ui.format import format_competencia, format_moeda
 from poupy.ui.gasto_dialog import GastoDialog
 
@@ -59,6 +60,14 @@ class MainWindow(QMainWindow):
         botao_novo.setShortcut("Ctrl+N")
         botao_novo.clicked.connect(self._abrir_novo_gasto)
 
+        botao_categorias = QPushButton("Categorias")
+        botao_categorias.clicked.connect(self._abrir_categorias)
+
+        acoes = QHBoxLayout()
+        acoes.addWidget(botao_novo)
+        acoes.addStretch(1)
+        acoes.addWidget(botao_categorias)
+
         self._tabela = QTableWidget(0, len(_COLUNAS))
         self._tabela.setHorizontalHeaderLabels(_COLUNAS)
         self._tabela.verticalHeader().setVisible(False)
@@ -74,7 +83,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
         layout.addLayout(navegador)
         layout.addWidget(self._total)
-        layout.addWidget(botao_novo)
+        layout.addLayout(acoes)
         layout.addWidget(self._tabela, 1)
 
         central = QWidget()
@@ -87,6 +96,10 @@ class MainWindow(QMainWindow):
         dialog = GastoDialog(self._service, self)
         if dialog.exec() == int(GastoDialog.DialogCode.Accepted):
             self._atualizar()
+
+    def _abrir_categorias(self) -> None:
+        CategoriasDialog(self._service, self).exec()
+        self._atualizar()
 
     def _editar_linha(self, linha: int, _coluna: int) -> None:
         item = self._tabela.item(linha, 0)
