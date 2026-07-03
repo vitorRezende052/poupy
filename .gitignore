@@ -6,10 +6,8 @@ __pycache__/
 build/
 dist/
 
-# Tooling caches
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
+# Tooling caches (consolidados em .cache/ via pyproject.toml)
+.cache/
 
 # OS
 .DS_Store
