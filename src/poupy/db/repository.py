@@ -114,6 +114,35 @@ def total_do_mes(conn: sqlite3.Connection, ano_mes: str) -> int:
     return int(linha["total"])
 
 
+def total_por_categoria(conn: sqlite3.Connection, ano_mes: str) -> list[tuple[str, int]]:
+    """(nome_categoria, soma_centavos) do mes, do maior para o menor."""
+    linhas = conn.execute(
+        """
+        SELECT c.nome AS nome, SUM(g.valor_centavos) AS total
+        FROM gasto g
+        JOIN categoria c ON c.id = g.categoria_id
+        WHERE substr(g.data, 1, 7) = ?
+        GROUP BY c.id
+        ORDER BY total DESC
+        """,
+        (ano_mes,),
+    ).fetchall()
+    return [(linha["nome"], int(linha["total"])) for linha in linhas]
+
+
+def total_por_mes(conn: sqlite3.Connection) -> list[tuple[str, int]]:
+    """(ano_mes, soma_centavos) de cada mes com registro, em ordem crescente."""
+    linhas = conn.execute(
+        """
+        SELECT substr(data, 1, 7) AS mes, SUM(valor_centavos) AS total
+        FROM gasto
+        GROUP BY mes
+        ORDER BY mes
+        """
+    ).fetchall()
+    return [(linha["mes"], int(linha["total"])) for linha in linhas]
+
+
 def primeiro_mes(conn: sqlite3.Connection) -> str | None:
     """Ano-mes 'YYYY-MM' do lancamento mais antigo, ou None se nao ha gastos."""
     linha = conn.execute("SELECT min(substr(data, 1, 7)) AS mes FROM gasto").fetchone()

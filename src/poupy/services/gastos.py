@@ -94,6 +94,18 @@ class GastoService:
     def total_do_mes(self, ano_mes: str) -> int:
         return repository.total_do_mes(self._conn, ano_mes)
 
+    def gastos_por_categoria(self, ano_mes: str) -> list[tuple[str, int]]:
+        """(nome, total_centavos) por categoria no mes, do maior para o menor."""
+        return repository.total_por_categoria(self._conn, ano_mes)
+
+    def evolucao_mensal(self) -> list[tuple[str, int]]:
+        """(ano_mes, total_centavos) para cada mes do intervalo continuo.
+
+        Meses sem lancamento entram com total 0, para a linha nao distorcer.
+        """
+        totais = dict(repository.total_por_mes(self._conn))
+        return [(mes, totais.get(mes, 0)) for mes in self.meses_disponiveis()]
+
     def meses_disponiveis(self) -> list[str]:
         """Intervalo continuo 'YYYY-MM' do primeiro lancamento ate o mes atual.
 

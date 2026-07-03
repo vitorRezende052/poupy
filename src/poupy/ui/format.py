@@ -26,6 +26,12 @@ def format_competencia(ano_mes: str) -> str:
     return f"{_MESES[int(mes) - 1]} de {ano}"
 
 
+def format_mes_curto(ano_mes: str) -> str:
+    """Formata 'YYYY-MM' como 'Jul/26', para rotulos de eixo."""
+    ano, mes = ano_mes.split("-")
+    return f"{_MESES[int(mes) - 1][:3]}/{ano[2:]}"
+
+
 def format_moeda(centavos: int) -> str:
     """Formata centavos como 'R$ 12.345,67' (ponto de milhar, virgula decimal)."""
     sinal = "-" if centavos < 0 else ""
