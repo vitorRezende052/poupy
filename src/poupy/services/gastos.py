@@ -26,6 +26,20 @@ class GastoService:
             raise ValueError("O nome da categoria nao pode ser vazio.")
         return repository.criar_categoria(self._conn, nome_limpo)
 
+    def renomear_categoria(self, categoria_id: int, nome: str) -> None:
+        nome_limpo = nome.strip()
+        if not nome_limpo:
+            raise ValueError("O nome da categoria nao pode ser vazio.")
+        try:
+            repository.renomear_categoria(self._conn, categoria_id, nome_limpo)
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(f"Ja existe uma categoria chamada '{nome_limpo}'.") from erro
+
+    def excluir_categoria(self, categoria_id: int) -> None:
+        if repository.categoria_em_uso(self._conn, categoria_id):
+            raise ValueError("Nao e possivel excluir uma categoria com gastos vinculados.")
+        repository.excluir_categoria(self._conn, categoria_id)
+
     def registrar_gasto(
         self,
         valor_centavos: int,
@@ -48,11 +62,52 @@ class GastoService:
             descricao=descricao_limpa,
         )
 
+    def atualizar_gasto(
+        self,
+        gasto_id: int,
+        valor_centavos: int,
+        data: date,
+        categoria_id: int,
+        descricao: str | None,
+    ) -> Gasto:
+        if valor_centavos <= 0:
+            raise ValueError("O valor do gasto deve ser maior que zero.")
+        descricao_limpa = (descricao or "").strip() or None
+        repository.atualizar_gasto(
+            self._conn, gasto_id, valor_centavos, data, categoria_id, descricao_limpa
+        )
+        return Gasto(
+            id=gasto_id,
+            valor_centavos=valor_centavos,
+            data=data,
+            categoria_id=categoria_id,
+            categoria_nome=self._nome_categoria(categoria_id),
+            descricao=descricao_limpa,
+        )
+
+    def excluir_gasto(self, gasto_id: int) -> None:
+        repository.excluir_gasto(self._conn, gasto_id)
+
     def gastos_do_mes(self, ano_mes: str) -> list[Gasto]:
         return repository.gastos_do_mes(self._conn, ano_mes)
 
     def total_do_mes(self, ano_mes: str) -> int:
         return repository.total_do_mes(self._conn, ano_mes)
+
+    def meses_disponiveis(self) -> list[str]:
+        """Intervalo continuo 'YYYY-MM' do primeiro lancamento ate o mes atual.
+
+        Ascendente. Sem lancamentos, retorna apenas o mes atual.
+        """
+        mes_atual = date.today().strftime("%Y-%m")
+        primeiro = repository.primeiro_mes(self._conn) or mes_atual
+        meses: list[str] = []
+        ano, mes = (int(parte) for parte in primeiro.split("-"))
+        ano_fim, mes_fim = (int(parte) for parte in mes_atual.split("-"))
+        while (ano, mes) <= (ano_fim, mes_fim):
+            meses.append(f"{ano:04d}-{mes:02d}")
+            ano, mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
+        return meses
 
     def _nome_categoria(self, categoria_id: int) -> str:
         for categoria in self.categorias():

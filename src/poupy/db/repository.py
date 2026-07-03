@@ -24,6 +24,23 @@ def criar_categoria(conn: sqlite3.Connection, nome: str) -> Categoria:
     return Categoria(id=int(cursor.lastrowid or 0), nome=nome)
 
 
+def renomear_categoria(conn: sqlite3.Connection, categoria_id: int, nome: str) -> None:
+    conn.execute("UPDATE categoria SET nome = ? WHERE id = ?", (nome, categoria_id))
+    conn.commit()
+
+
+def excluir_categoria(conn: sqlite3.Connection, categoria_id: int) -> None:
+    conn.execute("DELETE FROM categoria WHERE id = ?", (categoria_id,))
+    conn.commit()
+
+
+def categoria_em_uso(conn: sqlite3.Connection, categoria_id: int) -> bool:
+    linha = conn.execute(
+        "SELECT 1 FROM gasto WHERE categoria_id = ? LIMIT 1", (categoria_id,)
+    ).fetchone()
+    return linha is not None
+
+
 def inserir_gasto(
     conn: sqlite3.Connection,
     valor_centavos: int,
@@ -38,6 +55,27 @@ def inserir_gasto(
     )
     conn.commit()
     return int(cursor.lastrowid or 0)
+
+
+def atualizar_gasto(
+    conn: sqlite3.Connection,
+    gasto_id: int,
+    valor_centavos: int,
+    data: date,
+    categoria_id: int,
+    descricao: str | None,
+) -> None:
+    conn.execute(
+        "UPDATE gasto SET valor_centavos = ?, data = ?, categoria_id = ?, descricao = ? "
+        "WHERE id = ?",
+        (valor_centavos, data.isoformat(), categoria_id, descricao, gasto_id),
+    )
+    conn.commit()
+
+
+def excluir_gasto(conn: sqlite3.Connection, gasto_id: int) -> None:
+    conn.execute("DELETE FROM gasto WHERE id = ?", (gasto_id,))
+    conn.commit()
 
 
 def gastos_do_mes(conn: sqlite3.Connection, ano_mes: str) -> list[Gasto]:
@@ -74,3 +112,10 @@ def total_do_mes(conn: sqlite3.Connection, ano_mes: str) -> int:
         (ano_mes,),
     ).fetchone()
     return int(linha["total"])
+
+
+def primeiro_mes(conn: sqlite3.Connection) -> str | None:
+    """Ano-mes 'YYYY-MM' do lancamento mais antigo, ou None se nao ha gastos."""
+    linha = conn.execute("SELECT min(substr(data, 1, 7)) AS mes FROM gasto").fetchone()
+    mes = linha["mes"]
+    return None if mes is None else str(mes)

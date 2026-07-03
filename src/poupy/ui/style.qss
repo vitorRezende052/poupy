@@ -5,11 +5,28 @@ QWidget {
     font-size: 14px;
 }
 
-QLabel#competencia {
-    color: #6b7280;
-    font-size: 15px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+QComboBox#competencia {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    padding: 8px 12px;
+}
+
+QToolButton {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 18px;
+    color: #374151;
+}
+
+QToolButton:hover {
+    border-color: #9ca3af;
+}
+
+QToolButton:disabled {
+    color: #cbd5e1;
 }
 
 QLabel#total {
