@@ -54,6 +54,21 @@ class GastoService:
     def total_do_mes(self, ano_mes: str) -> int:
         return repository.total_do_mes(self._conn, ano_mes)
 
+    def meses_disponiveis(self) -> list[str]:
+        """Intervalo continuo 'YYYY-MM' do primeiro lancamento ate o mes atual.
+
+        Ascendente. Sem lancamentos, retorna apenas o mes atual.
+        """
+        mes_atual = date.today().strftime("%Y-%m")
+        primeiro = repository.primeiro_mes(self._conn) or mes_atual
+        meses: list[str] = []
+        ano, mes = (int(parte) for parte in primeiro.split("-"))
+        ano_fim, mes_fim = (int(parte) for parte in mes_atual.split("-"))
+        while (ano, mes) <= (ano_fim, mes_fim):
+            meses.append(f"{ano:04d}-{mes:02d}")
+            ano, mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
+        return meses
+
     def _nome_categoria(self, categoria_id: int) -> str:
         for categoria in self.categorias():
             if categoria.id == categoria_id:

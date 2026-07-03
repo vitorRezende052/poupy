@@ -1,4 +1,4 @@
-"""Janela principal: cabecalho com total do mes e lista de lancamentos."""
+"""Janela principal: navegador de mes, total do mes e lista de lancamentos."""
 
 from __future__ import annotations
 
@@ -7,12 +7,15 @@ from datetime import date
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QMainWindow,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -32,8 +35,20 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Poupy")
         self.resize(720, 560)
 
-        self._competencia = QLabel()
+        self._btn_anterior = QToolButton()
+        self._btn_anterior.setText("‹")
+        self._btn_anterior.clicked.connect(self._mes_anterior)
+        self._btn_proximo = QToolButton()
+        self._btn_proximo.setText("›")
+        self._btn_proximo.clicked.connect(self._mes_proximo)
+        self._competencia = QComboBox()
         self._competencia.setObjectName("competencia")
+        self._competencia.currentIndexChanged.connect(self._mudar_mes)
+
+        navegador = QHBoxLayout()
+        navegador.addWidget(self._btn_anterior)
+        navegador.addWidget(self._competencia, 1)
+        navegador.addWidget(self._btn_proximo)
 
         self._total = QLabel()
         self._total.setObjectName("total")
@@ -55,7 +70,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
-        layout.addWidget(self._competencia)
+        layout.addLayout(navegador)
         layout.addWidget(self._total)
         layout.addWidget(botao_novo)
         layout.addWidget(self._tabela, 1)
@@ -71,8 +86,37 @@ class MainWindow(QMainWindow):
         if dialog.exec() == int(NovoGastoDialog.DialogCode.Accepted):
             self._atualizar()
 
+    def _mes_anterior(self) -> None:
+        self._competencia.setCurrentIndex(self._competencia.currentIndex() - 1)
+
+    def _mes_proximo(self) -> None:
+        self._competencia.setCurrentIndex(self._competencia.currentIndex() + 1)
+
+    def _mudar_mes(self, indice: int) -> None:
+        if indice < 0:
+            return
+        self._ano_mes = str(self._competencia.itemData(indice))
+        self._atualizar_conteudo()
+
     def _atualizar(self) -> None:
-        self._competencia.setText(format_competencia(self._ano_mes))
+        """Recarrega os meses disponiveis e o conteudo do mes selecionado."""
+        meses = self._service.meses_disponiveis()
+        if self._ano_mes not in meses:
+            self._ano_mes = meses[-1]
+        self._competencia.blockSignals(True)
+        self._competencia.clear()
+        for ano_mes in meses:
+            self._competencia.addItem(format_competencia(ano_mes), ano_mes)
+        self._competencia.setCurrentIndex(meses.index(self._ano_mes))
+        self._competencia.blockSignals(False)
+        self._atualizar_conteudo()
+
+    def _atualizar_conteudo(self) -> None:
+        """Atualiza setas, total e lista para o mes selecionado."""
+        self._btn_anterior.setEnabled(self._competencia.currentIndex() > 0)
+        self._btn_proximo.setEnabled(
+            self._competencia.currentIndex() < self._competencia.count() - 1
+        )
         self._total.setText(format_moeda(self._service.total_do_mes(self._ano_mes)))
 
         gastos = self._service.gastos_do_mes(self._ano_mes)

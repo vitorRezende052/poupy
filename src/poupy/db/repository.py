@@ -74,3 +74,10 @@ def total_do_mes(conn: sqlite3.Connection, ano_mes: str) -> int:
         (ano_mes,),
     ).fetchone()
     return int(linha["total"])
+
+
+def primeiro_mes(conn: sqlite3.Connection) -> str | None:
+    """Ano-mes 'YYYY-MM' do lancamento mais antigo, ou None se nao ha gastos."""
+    linha = conn.execute("SELECT min(substr(data, 1, 7)) AS mes FROM gasto").fetchone()
+    mes = linha["mes"]
+    return None if mes is None else str(mes)
