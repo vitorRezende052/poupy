@@ -12,3 +12,5 @@ uv run mypy           # tipos (strict)
 ```
 
 Os dados ficam num unico arquivo SQLite em `QStandardPaths.AppDataLocation`.
+
+Empacotamento para Windows: ver [docs/empacotamento.md](docs/empacotamento.md).
