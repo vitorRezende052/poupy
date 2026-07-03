@@ -40,6 +40,27 @@ def inserir_gasto(
     return int(cursor.lastrowid or 0)
 
 
+def atualizar_gasto(
+    conn: sqlite3.Connection,
+    gasto_id: int,
+    valor_centavos: int,
+    data: date,
+    categoria_id: int,
+    descricao: str | None,
+) -> None:
+    conn.execute(
+        "UPDATE gasto SET valor_centavos = ?, data = ?, categoria_id = ?, descricao = ? "
+        "WHERE id = ?",
+        (valor_centavos, data.isoformat(), categoria_id, descricao, gasto_id),
+    )
+    conn.commit()
+
+
+def excluir_gasto(conn: sqlite3.Connection, gasto_id: int) -> None:
+    conn.execute("DELETE FROM gasto WHERE id = ?", (gasto_id,))
+    conn.commit()
+
+
 def gastos_do_mes(conn: sqlite3.Connection, ano_mes: str) -> list[Gasto]:
     """Gastos de um mes 'YYYY-MM', mais recentes primeiro."""
     linhas = conn.execute(

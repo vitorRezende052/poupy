@@ -1,4 +1,4 @@
-"""Dialogo modal para registrar um novo gasto."""
+"""Dialogo modal para registrar ou editar um gasto."""
 
 from __future__ import annotations
 
@@ -21,20 +21,30 @@ from PySide6.QtWidgets import (
 
 from poupy.models import Gasto
 from poupy.services.gastos import GastoService
-from poupy.ui.format import parse_moeda
+from poupy.ui.format import format_centavos_editavel, parse_moeda
 
 
-class NovoGastoDialog(QDialog):
+class GastoDialog(QDialog):
     """Coleta Valor, Categoria, Descricao e Data e salva via servico.
 
-    Apos exec() == Accepted, o gasto criado fica em ``gasto_criado``.
+    Sem ``gasto``, registra um novo. Com ``gasto``, edita o existente e
+    oferece exclusao. Apos exec() == Accepted, ``gasto_salvo`` traz o gasto
+    (None quando foi excluido) e ``excluido`` indica exclusao.
     """
 
-    def __init__(self, service: GastoService, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        service: GastoService,
+        parent: QWidget | None = None,
+        gasto: Gasto | None = None,
+    ) -> None:
         super().__init__(parent)
         self._service = service
-        self.gasto_criado: Gasto | None = None
-        self.setWindowTitle("Novo gasto")
+        self._gasto = gasto
+        self.gasto_salvo: Gasto | None = None
+        self.excluido = False
+        self._titulo = "Editar gasto" if gasto else "Novo gasto"
+        self.setWindowTitle(self._titulo)
         self.setModal(True)
 
         self._valor = QLineEdit()
@@ -66,9 +76,24 @@ class NovoGastoDialog(QDialog):
         )
         botoes.accepted.connect(self.accept)
         botoes.rejected.connect(self.reject)
+        if gasto is not None:
+            botao_excluir = botoes.addButton(
+                "Excluir", QDialogButtonBox.ButtonRole.DestructiveRole
+            )
+            botao_excluir.clicked.connect(self._excluir)
         formulario.addRow(botoes)
 
+        if gasto is not None:
+            self._preencher(gasto)
         self._valor.setFocus()
+
+    def _preencher(self, gasto: Gasto) -> None:
+        self._valor.setText(format_centavos_editavel(gasto.valor_centavos))
+        indice = self._categoria.findData(gasto.categoria_id)
+        if indice >= 0:
+            self._categoria.setCurrentIndex(indice)
+        self._descricao.setText(gasto.descricao or "")
+        self._data.setDate(QDate(gasto.data.year, gasto.data.month, gasto.data.day))
 
     def _recarregar_categorias(self, selecionar_id: int | None = None) -> None:
         self._categoria.clear()
@@ -90,25 +115,41 @@ class NovoGastoDialog(QDialog):
             return
         self._recarregar_categorias(selecionar_id=categoria.id)
 
+    def _excluir(self) -> None:
+        resposta = QMessageBox.question(
+            self, "Excluir gasto", "Deseja excluir este lancamento?"
+        )
+        if resposta != QMessageBox.StandardButton.Yes or self._gasto is None:
+            return
+        self._service.excluir_gasto(self._gasto.id)
+        self.excluido = True
+        super().accept()
+
     def accept(self) -> None:
         try:
             valor_centavos = parse_moeda(self._valor.text())
         except ValueError as erro:
-            QMessageBox.warning(self, "Novo gasto", str(erro))
+            QMessageBox.warning(self, self._titulo, str(erro))
             return
 
         categoria_id = self._categoria.currentData()
         if categoria_id is None:
-            QMessageBox.warning(self, "Novo gasto", "Selecione uma categoria.")
+            QMessageBox.warning(self, self._titulo, "Selecione uma categoria.")
             return
 
         qdata = self._data.date()
         data = date(qdata.year(), qdata.month(), qdata.day())
         try:
-            self.gasto_criado = self._service.registrar_gasto(
-                valor_centavos, data, int(categoria_id), self._descricao.text()
-            )
+            if self._gasto is None:
+                self.gasto_salvo = self._service.registrar_gasto(
+                    valor_centavos, data, int(categoria_id), self._descricao.text()
+                )
+            else:
+                self.gasto_salvo = self._service.atualizar_gasto(
+                    self._gasto.id, valor_centavos, data, int(categoria_id),
+                    self._descricao.text(),
+                )
         except ValueError as erro:
-            QMessageBox.warning(self, "Novo gasto", str(erro))
+            QMessageBox.warning(self, self._titulo, str(erro))
             return
         super().accept()

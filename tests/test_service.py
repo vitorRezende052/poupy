@@ -42,6 +42,33 @@ def test_criar_categoria_valida_nome(conn: sqlite3.Connection) -> None:
         service.criar_categoria("   ")
 
 
+def test_atualizar_gasto_persiste(conn: sqlite3.Connection) -> None:
+    service = GastoService(conn)
+    gasto = service.registrar_gasto(1500, date(2026, 7, 10), 1, "Almoco")
+
+    service.atualizar_gasto(gasto.id, 2000, date(2026, 7, 11), 2, "Jantar")
+
+    atualizado = service.gastos_do_mes("2026-07")[0]
+    assert atualizado.valor_centavos == 2000
+    assert atualizado.categoria_id == 2
+    assert atualizado.descricao == "Jantar"
+    assert atualizado.data == date(2026, 7, 11)
+
+
+def test_atualizar_valor_invalido_rejeitado(conn: sqlite3.Connection) -> None:
+    service = GastoService(conn)
+    gasto = service.registrar_gasto(1500, date(2026, 7, 10), 1, None)
+    with pytest.raises(ValueError):
+        service.atualizar_gasto(gasto.id, 0, date(2026, 7, 10), 1, None)
+
+
+def test_excluir_gasto(conn: sqlite3.Connection) -> None:
+    service = GastoService(conn)
+    gasto = service.registrar_gasto(1500, date(2026, 7, 10), 1, None)
+    service.excluir_gasto(gasto.id)
+    assert service.total_do_mes("2026-07") == 0
+
+
 def test_persistencia_apos_reabrir(caminho_db: Path) -> None:
     conn = abrir_conexao(caminho_db)
     GastoService(conn).registrar_gasto(4200, date(2026, 7, 5), 1, "Cafe")

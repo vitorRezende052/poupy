@@ -48,6 +48,32 @@ class GastoService:
             descricao=descricao_limpa,
         )
 
+    def atualizar_gasto(
+        self,
+        gasto_id: int,
+        valor_centavos: int,
+        data: date,
+        categoria_id: int,
+        descricao: str | None,
+    ) -> Gasto:
+        if valor_centavos <= 0:
+            raise ValueError("O valor do gasto deve ser maior que zero.")
+        descricao_limpa = (descricao or "").strip() or None
+        repository.atualizar_gasto(
+            self._conn, gasto_id, valor_centavos, data, categoria_id, descricao_limpa
+        )
+        return Gasto(
+            id=gasto_id,
+            valor_centavos=valor_centavos,
+            data=data,
+            categoria_id=categoria_id,
+            categoria_nome=self._nome_categoria(categoria_id),
+            descricao=descricao_limpa,
+        )
+
+    def excluir_gasto(self, gasto_id: int) -> None:
+        repository.excluir_gasto(self._conn, gasto_id)
+
     def gastos_do_mes(self, ano_mes: str) -> list[Gasto]:
         return repository.gastos_do_mes(self._conn, ano_mes)
 

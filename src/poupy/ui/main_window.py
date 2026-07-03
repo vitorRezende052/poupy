@@ -20,9 +20,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from poupy.models import Gasto
 from poupy.services.gastos import GastoService
 from poupy.ui.format import format_competencia, format_moeda
-from poupy.ui.novo_gasto_dialog import NovoGastoDialog
+from poupy.ui.gasto_dialog import GastoDialog
 
 _COLUNAS = ("Data", "Categoria", "Descricao", "Valor")
 
@@ -64,6 +65,7 @@ class MainWindow(QMainWindow):
         self._tabela.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._tabela.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._tabela.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._tabela.cellDoubleClicked.connect(self._editar_linha)
         cabecalho = self._tabela.horizontalHeader()
         cabecalho.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
@@ -82,8 +84,17 @@ class MainWindow(QMainWindow):
         self._atualizar()
 
     def _abrir_novo_gasto(self) -> None:
-        dialog = NovoGastoDialog(self._service, self)
-        if dialog.exec() == int(NovoGastoDialog.DialogCode.Accepted):
+        dialog = GastoDialog(self._service, self)
+        if dialog.exec() == int(GastoDialog.DialogCode.Accepted):
+            self._atualizar()
+
+    def _editar_linha(self, linha: int, _coluna: int) -> None:
+        item = self._tabela.item(linha, 0)
+        if item is None:
+            return
+        gasto: Gasto = item.data(Qt.ItemDataRole.UserRole)
+        dialog = GastoDialog(self._service, self, gasto=gasto)
+        if dialog.exec() == int(GastoDialog.DialogCode.Accepted):
             self._atualizar()
 
     def _mes_anterior(self) -> None:
@@ -124,8 +135,10 @@ class MainWindow(QMainWindow):
         for linha, gasto in enumerate(gastos):
             valor = QTableWidgetItem(format_moeda(gasto.valor_centavos))
             valor.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            data = QTableWidgetItem(gasto.data.strftime("%d/%m/%Y"))
+            data.setData(Qt.ItemDataRole.UserRole, gasto)
             celulas = (
-                QTableWidgetItem(gasto.data.strftime("%d/%m/%Y")),
+                data,
                 QTableWidgetItem(gasto.categoria_nome),
                 QTableWidgetItem(gasto.descricao or ""),
                 valor,

@@ -34,6 +34,12 @@ def format_moeda(centavos: int) -> str:
     return f"{sinal}{_SIMBOLO} {inteiro},{resto:02d}"
 
 
+def format_centavos_editavel(centavos: int) -> str:
+    """Formata centavos como '1234,56' (sem simbolo), para preencher inputs."""
+    reais, resto = divmod(centavos, 100)
+    return f"{reais},{resto:02d}"
+
+
 def parse_moeda(texto: str) -> int:
     """Le uma entrada pt-BR ('1.234,56', '12,5', '12', 'R$ 9,90') em centavos.
 
