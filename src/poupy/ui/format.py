@@ -4,6 +4,27 @@ from __future__ import annotations
 
 _SIMBOLO = "R$"
 
+_MESES = (
+    "Janeiro",
+    "Fevereiro",
+    "Marco",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+)
+
+
+def format_competencia(ano_mes: str) -> str:
+    """Formata 'YYYY-MM' como 'Julho de 2026'."""
+    ano, mes = ano_mes.split("-")
+    return f"{_MESES[int(mes) - 1]} de {ano}"
+
 
 def format_moeda(centavos: int) -> str:
     """Formata centavos como 'R$ 12.345,67' (ponto de milhar, virgula decimal)."""

@@ -1,0 +1,73 @@
+QWidget {
+    background-color: #f5f6f8;
+    color: #1f2430;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+}
+
+QLabel#competencia {
+    color: #6b7280;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+QLabel#total {
+    font-size: 40px;
+    font-weight: 700;
+    color: #111827;
+}
+
+QPushButton {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 16px;
+}
+
+QPushButton:hover {
+    border-color: #9ca3af;
+}
+
+QPushButton#botaoNovo {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+}
+
+QPushButton#botaoNovo:hover {
+    background-color: #1d4ed8;
+}
+
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    gridline-color: #eef0f3;
+}
+
+QHeaderView::section {
+    background-color: #ffffff;
+    color: #6b7280;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 8px;
+    font-weight: 600;
+}
+
+QTableWidget::item {
+    padding: 6px 8px;
+}
+
+QTableWidget::item:selected {
+    background-color: #dbeafe;
+    color: #111827;
+}
+
+QLineEdit, QComboBox, QDateEdit {
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
