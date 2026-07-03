@@ -47,20 +47,11 @@ class GastoService:
         categoria_id: int,
         descricao: str | None,
     ) -> Gasto:
-        if valor_centavos <= 0:
-            raise ValueError("O valor do gasto deve ser maior que zero.")
-        descricao_limpa = (descricao or "").strip() or None
+        descricao_limpa = self._validar(valor_centavos, descricao)
         gasto_id = repository.inserir_gasto(
             self._conn, valor_centavos, data, categoria_id, descricao_limpa
         )
-        return Gasto(
-            id=gasto_id,
-            valor_centavos=valor_centavos,
-            data=data,
-            categoria_id=categoria_id,
-            categoria_nome=self._nome_categoria(categoria_id),
-            descricao=descricao_limpa,
-        )
+        return self._montar_gasto(gasto_id, valor_centavos, data, categoria_id, descricao_limpa)
 
     def atualizar_gasto(
         self,
@@ -70,20 +61,11 @@ class GastoService:
         categoria_id: int,
         descricao: str | None,
     ) -> Gasto:
-        if valor_centavos <= 0:
-            raise ValueError("O valor do gasto deve ser maior que zero.")
-        descricao_limpa = (descricao or "").strip() or None
+        descricao_limpa = self._validar(valor_centavos, descricao)
         repository.atualizar_gasto(
             self._conn, gasto_id, valor_centavos, data, categoria_id, descricao_limpa
         )
-        return Gasto(
-            id=gasto_id,
-            valor_centavos=valor_centavos,
-            data=data,
-            categoria_id=categoria_id,
-            categoria_nome=self._nome_categoria(categoria_id),
-            descricao=descricao_limpa,
-        )
+        return self._montar_gasto(gasto_id, valor_centavos, data, categoria_id, descricao_limpa)
 
     def excluir_gasto(self, gasto_id: int) -> None:
         repository.excluir_gasto(self._conn, gasto_id)
@@ -120,6 +102,29 @@ class GastoService:
             meses.append(f"{ano:04d}-{mes:02d}")
             ano, mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
         return meses
+
+    def _validar(self, valor_centavos: int, descricao: str | None) -> str | None:
+        """Valida o valor e devolve a descricao normalizada (vazio vira None)."""
+        if valor_centavos <= 0:
+            raise ValueError("O valor do gasto deve ser maior que zero.")
+        return (descricao or "").strip() or None
+
+    def _montar_gasto(
+        self,
+        gasto_id: int,
+        valor_centavos: int,
+        data: date,
+        categoria_id: int,
+        descricao: str | None,
+    ) -> Gasto:
+        return Gasto(
+            id=gasto_id,
+            valor_centavos=valor_centavos,
+            data=data,
+            categoria_id=categoria_id,
+            categoria_nome=self._nome_categoria(categoria_id),
+            descricao=descricao,
+        )
 
     def _nome_categoria(self, categoria_id: int) -> str:
         for categoria in self.categorias():
