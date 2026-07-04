@@ -11,11 +11,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QHBoxLayout,
-    QInputDialog,
     QLineEdit,
     QMessageBox,
-    QPushButton,
     QWidget,
 )
 
@@ -52,11 +49,6 @@ class GastoDialog(QDialog):
 
         self._categoria = QComboBox()
         self._recarregar_categorias()
-        botao_nova = QPushButton("Nova categoria")
-        botao_nova.clicked.connect(self._nova_categoria)
-        linha_categoria = QHBoxLayout()
-        linha_categoria.addWidget(self._categoria, 1)
-        linha_categoria.addWidget(botao_nova)
 
         self._descricao = QLineEdit()
 
@@ -68,7 +60,7 @@ class GastoDialog(QDialog):
 
         formulario = QFormLayout(self)
         formulario.addRow("Valor", self._valor)
-        formulario.addRow("Categoria", linha_categoria)
+        formulario.addRow("Categoria", self._categoria)
         formulario.addRow("Descrição", self._descricao)
         formulario.addRow("Data", self._data)
 
@@ -96,25 +88,10 @@ class GastoDialog(QDialog):
         self._descricao.setText(gasto.descricao or "")
         self._data.setDate(QDate(gasto.data.year, gasto.data.month, gasto.data.day))
 
-    def _recarregar_categorias(self, selecionar_id: int | None = None) -> None:
+    def _recarregar_categorias(self) -> None:
         self._categoria.clear()
         for categoria in self._service.categorias():
             self._categoria.addItem(categoria.nome, categoria.id)
-        if selecionar_id is not None:
-            indice = self._categoria.findData(selecionar_id)
-            if indice >= 0:
-                self._categoria.setCurrentIndex(indice)
-
-    def _nova_categoria(self) -> None:
-        nome, ok = QInputDialog.getText(self, "Nova categoria", "Nome da categoria:")
-        if not ok:
-            return
-        try:
-            categoria = self._service.criar_categoria(nome)
-        except ValueError as erro:
-            QMessageBox.warning(self, "Nova categoria", str(erro))
-            return
-        self._recarregar_categorias(selecionar_id=categoria.id)
 
     def _excluir(self) -> None:
         resposta = QMessageBox.question(

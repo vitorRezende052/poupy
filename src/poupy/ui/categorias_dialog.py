@@ -30,6 +30,9 @@ class CategoriasDialog(QDialog):
         self._lista = QListWidget()
         self._lista.itemDoubleClicked.connect(lambda _item: self._renomear())
 
+        botao_criar = QPushButton("Nova categoria")
+        botao_criar.clicked.connect(self._criar)
+
         botao_renomear = QPushButton("Renomear")
         botao_renomear.clicked.connect(self._renomear)
         botao_excluir = QPushButton("Excluir")
@@ -42,6 +45,7 @@ class CategoriasDialog(QDialog):
         fechar.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
+        layout.addWidget(botao_criar)
         layout.addWidget(self._lista, 1)
         layout.addLayout(acoes)
         layout.addWidget(fechar)
@@ -60,6 +64,17 @@ class CategoriasDialog(QDialog):
         if item is None:
             QMessageBox.information(self, "Categorias", "Selecione uma categoria.")
         return item
+
+    def _criar(self) -> None:
+        nome, ok = QInputDialog.getText(self, "Nova categoria", "Nome da categoria:")
+        if not ok:
+            return
+        try:
+            self._service.criar_categoria(nome)
+        except ValueError as erro:
+            QMessageBox.warning(self, "Nova categoria", str(erro))
+            return
+        self._recarregar()
 
     def _renomear(self) -> None:
         item = self._selecionada()

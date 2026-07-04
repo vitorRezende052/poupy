@@ -53,6 +53,24 @@ def test_excluir_categoria_em_uso_bloqueada(conn: sqlite3.Connection) -> None:
     assert categoria.id in [c.id for c in service.categorias()]
 
 
+def test_dialog_cria_categoria(
+    conn: sqlite3.Connection, qtbot: QtBot, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "poupy.ui.categorias_dialog.QInputDialog.getText",
+        lambda *args, **kwargs: ("Nova", True),
+    )
+    service = GastoService(conn)
+    total_inicial = len(service.categorias())
+
+    dialog = CategoriasDialog(service)
+    qtbot.addWidget(dialog)
+    dialog._criar()
+
+    assert "Nova" in [c.nome for c in service.categorias()]
+    assert dialog._lista.count() == total_inicial + 1
+
+
 def test_dialog_exclui_categoria(
     conn: sqlite3.Connection, qtbot: QtBot, monkeypatch: MonkeyPatch
 ) -> None:
