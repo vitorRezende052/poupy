@@ -24,7 +24,7 @@ class GraficosWidget(QWidget):
         self.setFixedHeight(260)
 
         self._categorias = self._novo_plot("Gastos por categoria")
-        self._evolucao = self._novo_plot("Evolucao mensal")
+        self._evolucao = self._novo_plot("Evolução mensal")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

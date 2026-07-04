@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import QMessageBox
 from pytest import MonkeyPatch
 from pytestqt.qtbot import QtBot
@@ -49,6 +49,24 @@ def test_dialog_valor_invalido_nao_fecha(
     assert dialog.gasto_salvo is None
     assert dialog.result() != int(GastoDialog.DialogCode.Accepted)
     assert avisos
+
+
+def test_dialog_nao_permite_data_futura(conn: sqlite3.Connection, qtbot: QtBot) -> None:
+    service = GastoService(conn)
+    dialog = GastoDialog(service)
+    qtbot.addWidget(dialog)
+
+    # A data maxima e hoje: tentar avancar alem nao passa do limite.
+    assert dialog._data.maximumDate() == QDate.currentDate()
+    dialog._data.setDate(QDate.currentDate().addMonths(1))
+    assert dialog._data.date() == QDate.currentDate()
+
+    dialog._valor.setText("10,00")
+    dialog.accept()
+
+    # O gasto entra em um mes navegavel: meses_disponiveis nunca fica vazio.
+    assert dialog.gasto_salvo is not None
+    assert service.meses_disponiveis()
 
 
 def test_dialog_edita_gasto(conn: sqlite3.Connection, qtbot: QtBot) -> None:

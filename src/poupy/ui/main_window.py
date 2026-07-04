@@ -27,7 +27,7 @@ from poupy.ui.format import format_competencia, format_moeda
 from poupy.ui.gasto_dialog import GastoDialog
 from poupy.ui.graficos import GraficosWidget
 
-_COLUNAS = ("Data", "Categoria", "Descricao", "Valor")
+_COLUNAS = ("Data", "Categoria", "Descrição", "Valor")
 
 
 class MainWindow(QMainWindow):

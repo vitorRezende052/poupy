@@ -24,7 +24,7 @@ def test_inserir_e_listar_gastos_do_mes(conn: sqlite3.Connection) -> None:
     gastos = repository.gastos_do_mes(conn, "2026-07")
     assert [g.valor_centavos for g in gastos] == [2500, 1500]  # mais recente primeiro
     assert gastos[1].descricao == "Almoco"
-    assert gastos[1].categoria_nome == "Alimentacao"
+    assert gastos[1].categoria_nome == "Alimentação"
 
 
 def test_total_do_mes_soma_apenas_o_mes(conn: sqlite3.Connection) -> None:

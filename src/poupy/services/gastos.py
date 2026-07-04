@@ -23,21 +23,24 @@ class GastoService:
     def criar_categoria(self, nome: str) -> Categoria:
         nome_limpo = nome.strip()
         if not nome_limpo:
-            raise ValueError("O nome da categoria nao pode ser vazio.")
-        return repository.criar_categoria(self._conn, nome_limpo)
+            raise ValueError("O nome da categoria não pode ser vazio.")
+        try:
+            return repository.criar_categoria(self._conn, nome_limpo)
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(f"Já existe uma categoria chamada '{nome_limpo}'.") from erro
 
     def renomear_categoria(self, categoria_id: int, nome: str) -> None:
         nome_limpo = nome.strip()
         if not nome_limpo:
-            raise ValueError("O nome da categoria nao pode ser vazio.")
+            raise ValueError("O nome da categoria não pode ser vazio.")
         try:
             repository.renomear_categoria(self._conn, categoria_id, nome_limpo)
         except sqlite3.IntegrityError as erro:
-            raise ValueError(f"Ja existe uma categoria chamada '{nome_limpo}'.") from erro
+            raise ValueError(f"Já existe uma categoria chamada '{nome_limpo}'.") from erro
 
     def excluir_categoria(self, categoria_id: int) -> None:
         if repository.categoria_em_uso(self._conn, categoria_id):
-            raise ValueError("Nao e possivel excluir uma categoria com gastos vinculados.")
+            raise ValueError("Não é possível excluir uma categoria com gastos vinculados.")
         repository.excluir_categoria(self._conn, categoria_id)
 
     def registrar_gasto(
@@ -130,4 +133,4 @@ class GastoService:
         for categoria in self.categorias():
             if categoria.id == categoria_id:
                 return categoria.nome
-        raise ValueError(f"Categoria {categoria_id} nao encontrada.")
+        raise ValueError(f"Categoria {categoria_id} não encontrada.")

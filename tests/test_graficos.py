@@ -19,7 +19,7 @@ def test_gastos_por_categoria_ordenado_desc(conn: sqlite3.Connection) -> None:
 
     dados = service.gastos_por_categoria("2026-07")
     assert dados[0] == ("Transporte", 2000)
-    assert dados[1] == ("Alimentacao", 1500)
+    assert dados[1] == ("Alimentação", 1500)
     # Mes sem gastos retorna vazio.
     assert service.gastos_por_categoria("2026-08") == []
 

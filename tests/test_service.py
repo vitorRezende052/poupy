@@ -18,7 +18,7 @@ def test_registrar_gasto_persiste(conn: sqlite3.Connection) -> None:
 
     assert gasto.id > 0
     assert gasto.descricao == "Almoco"  # trimmed
-    assert gasto.categoria_nome == "Alimentacao"
+    assert gasto.categoria_nome == "Alimentação"
     assert service.total_do_mes("2026-07") == 1500
 
 
@@ -40,6 +40,14 @@ def test_criar_categoria_valida_nome(conn: sqlite3.Connection) -> None:
     assert categoria.nome == "Viagem"
     with pytest.raises(ValueError):
         service.criar_categoria("   ")
+
+
+def test_criar_categoria_duplicada_rejeitada(conn: sqlite3.Connection) -> None:
+    service = GastoService(conn)
+    existente = service.categorias()[0].nome
+    # Nome duplicado vira ValueError amigavel, nao um sqlite3.IntegrityError cru.
+    with pytest.raises(ValueError):
+        service.criar_categoria(existente)
 
 
 def test_atualizar_gasto_persiste(conn: sqlite3.Connection) -> None:

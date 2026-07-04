@@ -63,12 +63,13 @@ class GastoDialog(QDialog):
         self._data = QDateEdit()
         self._data.setCalendarPopup(True)
         self._data.setDisplayFormat("dd/MM/yyyy")
+        self._data.setMaximumDate(QDate.currentDate())
         self._data.setDate(QDate.currentDate())
 
         formulario = QFormLayout(self)
         formulario.addRow("Valor", self._valor)
         formulario.addRow("Categoria", linha_categoria)
-        formulario.addRow("Descricao", self._descricao)
+        formulario.addRow("Descrição", self._descricao)
         formulario.addRow("Data", self._data)
 
         botoes = QDialogButtonBox(
@@ -117,7 +118,7 @@ class GastoDialog(QDialog):
 
     def _excluir(self) -> None:
         resposta = QMessageBox.question(
-            self, "Excluir gasto", "Deseja excluir este lancamento?"
+            self, "Excluir gasto", "Deseja excluir este lançamento?"
         )
         if resposta != QMessageBox.StandardButton.Yes or self._gasto is None:
             return

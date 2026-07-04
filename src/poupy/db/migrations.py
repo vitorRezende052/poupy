@@ -10,11 +10,11 @@ import sqlite3
 from collections.abc import Callable
 
 CATEGORIAS_PADRAO = (
-    "Alimentacao",
+    "Alimentação",
     "Transporte",
     "Moradia",
     "Lazer",
-    "Saude",
+    "Saúde",
     "Outros",
 )
 

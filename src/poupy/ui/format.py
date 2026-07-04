@@ -7,7 +7,7 @@ _SIMBOLO = "R$"
 _MESES = (
     "Janeiro",
     "Fevereiro",
-    "Marco",
+    "Março",
     "Abril",
     "Maio",
     "Junho",
@@ -58,5 +58,5 @@ def parse_moeda(texto: str) -> int:
     try:
         valor = round(float(limpo) * 100)
     except ValueError as erro:
-        raise ValueError(f"Valor invalido: {texto!r}") from erro
+        raise ValueError(f"Valor inválido: {texto!r}") from erro
     return valor
