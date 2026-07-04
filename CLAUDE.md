@@ -50,8 +50,13 @@ com qual base trabalhar. Ela substitui qualquer suposição anterior de que o
 
 ### Primeira execução (onboarding)
 
-Disparar o fluxo de primeira execução quando `activeDataPath` estiver ausente
-(config inexistente, ilegível ou sem a chave). Passos:
+Disparar o fluxo de primeira execução quando não há uma base ativa utilizável:
+`activeDataPath` ausente (config inexistente, ilegível ou sem a chave) OU o
+`poupy.db` apontado pelo config não existe mais (pasta apagada, HD externo
+desconectado, nuvem ainda não sincronizada). Neste último caso, SEMPRE
+re-perguntar via onboarding e NUNCA recriar silenciosamente um `poupy.db` vazio
+no mesmo caminho: isso enganaria o usuário fazendo parecer que os dados sumiram
+quando a pasta está apenas temporariamente inacessível. Passos:
 
 1. Exibir uma explicação breve: os dados ficam guardados localmente; o usuário é
    responsável pelo backup (basta copiar a pasta da base).
@@ -63,37 +68,31 @@ Disparar o fluxo de primeira execução quando `activeDataPath` estiver ausente
 4. Ao confirmar: validar permissão de escrita na pasta -> criar/abrir a base
    (`poupy.db`, aplicando migrações) -> gravar `activeDataPath` no `config.json`.
 
-### Troca de base (tela de configurações)
+### Trocar de pasta da base (sem tela de configurações)
 
-Na tela de configurações (aberta pelo botão de engrenagem ⚙️), a seção
-"Armazenamento de dados" deve:
+DECISÃO DE DESIGN: o onboarding é o ÚNICO ponto em que o usuário escolhe a pasta
+da base. NÃO existe tela de configurações nem botão de engrenagem para troca de
+base; NÃO há troca de conexão "a quente" com a UI carregada. Isso mantém o app
+simples e evita UI de gerência de base que não foi pedida.
 
-- Mostrar a pasta atual da base e um botão "Abrir no explorador"
-  (`QDesktopServices.openUrl(QUrl.fromLocalFile(...))`).
-- Oferecer "Usar outra pasta..." que abre o seletor nativo de pastas.
-- Ao escolher uma pasta, DETECTAR o conteúdo pela presença de `poupy.db` e
-  informar o usuário de forma inequívoca:
-  - **Pasta vazia (sem `poupy.db`)**: avisar que uma base nova, do zero, será
-    criada ali; deixar claro que a base atual continua salva na pasta antiga.
-  - **Pasta com `poupy.db`**: avisar que uma base existente foi encontrada e
-    será aberta. Este é o mecanismo oficial de "abrir/replicar base existente".
-- Deixar SEMPRE explícito que a troca é NÃO-DESTRUTIVA: a base anterior
-  permanece intacta na pasta antiga, e o usuário pode voltar a ela apontando o
-  app de volta para aquela pasta.
-- Ao confirmar: validar permissão de escrita -> fazer checkpoint e FECHAR a
-  conexão SQLite atual -> gravar o novo `activeDataPath` no `config.json` ->
-  reiniciar o app (ou, no mínimo, recriar a camada de dados) para trocar a
-  conexão com segurança. NÃO fazer troca "a quente" com a UI já carregada sobre
-  a conexão antiga.
+Para trocar de pasta, apontar para uma cópia ou restaurar um backup em outro
+local, o fluxo é manual e NÃO-DESTRUTIVO: fechar o app -> mover/apagar o
+`poupy.db` da pasta atual (ou apagar o `config.json`) -> reabrir o app, que cai
+no onboarding e deixa escolher a nova pasta. A base antiga permanece intacta
+onde estava, e o usuário pode voltar a ela apontando o onboarding de volta para
+aquela pasta.
 
 ### Fora de escopo (decisões de design - NÃO implementar)
 
+- SEM tela de configurações / botão de engrenagem para troca de base: o
+  onboarding é o único ponto de escolha de pasta (ver acima).
 - SEM função de "migrar/mover dados": trocar de base nunca move nem apaga a base
   antiga.
 - SEM botão de exportar/importar backup: backup = o usuário copia a pasta
   manualmente com o app fechado.
-- Replicar uma base = copiar a pasta e apontar o app para a cópia via "Usar
-  outra pasta...". NÃO criar UI dedicada para isso.
+- Replicar uma base = copiar a pasta com o app fechado e apontar o app para a
+  cópia pelo onboarding (apagando o `config.json` ou o `poupy.db` atual). NÃO
+  criar UI dedicada para isso.
 
 ### Invariantes e cuidados técnicos de SQLite/WAL
 
@@ -111,13 +110,15 @@ Na tela de configurações (aberta pelo botão de engrenagem ⚙️), a seção
 - **Validação da base ao abrir**: confirmar que o `poupy.db` é um banco Poupy
   legível; aplicar as migrações de schema (`PRAGMA user_version`) se um app mais
   novo abrir uma base antiga.
-- **Config ausente ou corrompido**: se `config.json` sumir ou estiver ilegível
-  (ex.: o usuário levou só o `.exe` para outra máquina), cair naturalmente no
-  fluxo de primeira execução.
+- **Config ausente/corrompido ou base sumida**: se `config.json` sumir ou
+  estiver ilegível (ex.: o usuário levou só o `.exe` para outra máquina), ou se
+  o `poupy.db` apontado não existir mais, cair naturalmente no fluxo de primeira
+  execução (sem recriar base silenciosamente).
 - **Pasta em nuvem (Google Drive / OneDrive / Dropbox)**: suportada como destino
-  de backup, mas o app deve APENAS AVISAR contra abrir a mesma base sincronizada
-  em duas máquinas ao mesmo tempo (risco de corrupção do SQLite). Não implementar
-  bloqueio nem lock distribuído; apenas o aviso.
+  de backup. Existe o risco de corromper o SQLite ao abrir a mesma base
+  sincronizada em duas máquinas ao mesmo tempo; como a escolha de pasta agora é
+  só no onboarding (rara), não há UI dedicada de aviso nem bloqueio. No máximo,
+  mencionar o risco no texto do onboarding. Não implementar lock distribuído.
 
 ### Distribuição (executável único) - implicações
 
@@ -164,7 +165,7 @@ Na tela de configurações (aberta pelo botão de engrenagem ⚙️), a seção
 5. Dinheiro é SEMPRE armazenado e calculado como centavos inteiros, NUNCA ponto flutuante. Formatar como moeda apenas na exibição
 6. Type hints em tudo; `mypy` em modo strict. Evitar `Any`; deixar os tipos pegarem os erros cedo
 7. Manter a UI separada da lógica e dos dados: a UI nunca executa SQL, toda comunicação com o banco passa pela camada de serviço/repositório tipada
-8. Ser conciso. Manter o README mínimo. IMPORTANTE: nunca usar emojis, exceto o ícone de engrenagem (⚙️) usado para representar as configurações na UI
+8. Ser conciso. Manter o README mínimo. IMPORTANTE: nunca usar emojis na UI, no código, nos commits ou na documentação
 
 ## Plan
 

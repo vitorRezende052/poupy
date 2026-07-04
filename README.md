@@ -73,8 +73,9 @@ garantindo versões reprodutíveis.
 uv run poupy
 ```
 
-O comando abre a janela do Poupy. Na primeira execução, o banco de dados é
-criado automaticamente e já vem com algumas categorias padrão.
+O comando abre a janela do Poupy. Na primeira execução, o app pergunta onde
+guardar seus dados (veja [Onde os dados ficam salvos](#onde-os-dados-ficam-salvos))
+e cria a base já com algumas categorias padrão.
 
 ## Como usar o aplicativo
 
@@ -124,16 +125,27 @@ sincronizada em dois computadores ao mesmo tempo - isso pode corromper o banco.
 
 ### Trocar de base ou usar em outro computador
 
-Nas configurações (botão de engrenagem ⚙️), a seção "Armazenamento de dados" mostra
-a pasta atual e permite "Usar outra pasta...":
+O onboarding da primeira execução é o único ponto em que você escolhe a pasta da
+base; não há tela de configurações. Para apontar o app para outra pasta (uma
+cópia, um backup restaurado ou os dados em outro computador), o fluxo é manual e
+**não-destrutivo**:
 
-- Escolher uma pasta **vazia** cria uma base nova, do zero.
-- Escolher uma pasta que já contém `poupy.db` **abre aquela base existente**.
+1. Feche o app.
+2. Mova ou apague o `poupy.db` da pasta atual, ou apague o `config.json` (o
+   ponteiro; veja os caminhos acima).
+3. Reabra o app: sem uma base ativa, ele cai no onboarding e deixa você escolher
+   a nova pasta.
+   - Uma pasta **vazia** vira uma base nova, do zero.
+   - Uma pasta que já contém `poupy.db` **abre aquela base existente**.
 
-Trocar de base é **não-destrutivo**: a base anterior continua intacta na pasta
-antiga, e você pode voltar a ela apontando o app de volta para aquela pasta.
-Para levar seus dados a outro computador, copie a pasta da base e, no outro
-computador, use "Usar outra pasta..." apontando para a cópia.
+A base anterior continua intacta na pasta antiga, e você pode voltar a ela
+apontando o onboarding de volta para aquela pasta. Para levar seus dados a outro
+computador, copie a pasta da base (com o app fechado) e, no outro computador,
+aponte o onboarding para a cópia.
+
+Se a pasta da base ficar indisponível (HD externo desconectado, nuvem ainda não
+sincronizada), o app não recria os dados por conta própria: ele volta ao
+onboarding para você reconectar a pasta ou escolher outra.
 
 ### Atualização
 
@@ -149,11 +161,12 @@ a dados passam pela camada de serviço.
 
 ```
 src/poupy/
-  __main__.py     Ponto de entrada (cria a aplicação Qt e a janela)
+  __main__.py     Ponto de entrada (resolve a base ativa e cria a janela)
+  config.py       Ponteiro da base ativa (config.json no dir de config do SO)
   models.py       Dataclasses tipadas do domínio
   db/             Conexão, repositório (SQL) e migrações de schema
   services/       Lógica de negócio e validações que a UI consome
-  ui/             Telas e widgets Qt, tema QSS e gráficos
+  ui/             Telas e widgets Qt (inclui o onboarding), tema QSS e gráficos
 ```
 
 ## Desenvolvimento
@@ -183,18 +196,18 @@ uv sync
 uv run pyinstaller poupy.spec --noconfirm
 ```
 
-O resultado (modo onedir) fica em `dist/Poupy/`. No Windows, o executável é
-`dist\Poupy\Poupy.exe`, acompanhado da pasta `_internal` ao lado.
-
-Para distribuir, compacte a pasta `dist/Poupy` inteira: o executável sozinho
-não roda sem a pasta `_internal`.
+O resultado (modo onefile) é um único executável em `dist/`. No Windows, é
+`dist\Poupy.exe`. Para distribuir, basta esse arquivo: não há pasta de apoio
+nem instalador. Atualizar é substituir o `.exe`; seus dados não são afetados,
+porque vivem numa pasta separada (a base) com o ponteiro em `%APPDATA%\Poupy`.
 
 Notas:
 
-- Para um único arquivo executável (mais cômodo de distribuir, porém com
-  inicialização mais lenta), remova o bloco `COLLECT` de `poupy.spec` e passe
-  `a.binaries` e `a.datas` diretamente no `EXE`. O modo onedir é o recomendado
-  para aplicações Qt.
+- O modo onefile extrai os arquivos para uma pasta temporária a cada execução,
+  então a inicialização é um pouco mais lenta que a de uma pasta onedir. A troca
+  vale a distribuição em arquivo único.
+- O `sqlite3` vem da biblioteca padrão do Python e já é embutido pelo
+  PyInstaller; não há módulo nativo extra para reempacotar.
 - O executável não é assinado. Na primeira execução no Windows, o SmartScreen
   pode exibir um aviso; escolha "Mais informações" e depois "Executar assim
   mesmo" para abrir o app.

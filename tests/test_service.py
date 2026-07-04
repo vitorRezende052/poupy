@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from poupy.db.connection import abrir_conexao
+from poupy.db.connection import abrir_conexao, fechar_conexao
 from poupy.services.gastos import GastoService
 
 
@@ -77,13 +77,13 @@ def test_excluir_gasto(conn: sqlite3.Connection) -> None:
     assert service.total_do_mes("2026-07") == 0
 
 
-def test_persistencia_apos_reabrir(caminho_db: Path) -> None:
-    conn = abrir_conexao(caminho_db)
+def test_persistencia_apos_reabrir(base: Path) -> None:
+    conn = abrir_conexao(base)
     GastoService(conn).registrar_gasto(4200, date(2026, 7, 5), 1, "Cafe")
-    conn.close()
+    fechar_conexao(conn)
 
-    conn = abrir_conexao(caminho_db)
+    conn = abrir_conexao(base)
     service = GastoService(conn)
     assert service.total_do_mes("2026-07") == 4200
     assert service.gastos_do_mes("2026-07")[0].descricao == "Cafe"
-    conn.close()
+    fechar_conexao(conn)

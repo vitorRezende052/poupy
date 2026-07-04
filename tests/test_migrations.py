@@ -22,8 +22,8 @@ def test_schema_e_seed(conn: sqlite3.Connection) -> None:
     assert nomes == set(CATEGORIAS_PADRAO)
 
 
-def test_migracao_idempotente(caminho_db: Path) -> None:
-    conn = abrir_conexao(caminho_db)
+def test_migracao_idempotente(base: Path) -> None:
+    conn = abrir_conexao(base)
     conn.execute(
         "INSERT INTO gasto (valor_centavos, data, categoria_id) VALUES (100, '2026-07-01', 1)"
     )
@@ -31,7 +31,7 @@ def test_migracao_idempotente(caminho_db: Path) -> None:
     conn.close()
 
     # Reabrir nao deve reaplicar a migracao nem duplicar categorias.
-    conn = abrir_conexao(caminho_db)
+    conn = abrir_conexao(base)
     assert conn.execute("SELECT COUNT(*) FROM categoria").fetchone()[0] == len(CATEGORIAS_PADRAO)
     assert conn.execute("SELECT COUNT(*) FROM gasto").fetchone()[0] == 1
     conn.close()

@@ -12,13 +12,13 @@ from poupy.db.connection import abrir_conexao
 
 
 @pytest.fixture
-def caminho_db(tmp_path: Path) -> Path:
-    return tmp_path / "poupy.db"
+def base(tmp_path: Path) -> Path:
+    return tmp_path
 
 
 @pytest.fixture
-def conn(caminho_db: Path) -> Iterator[sqlite3.Connection]:
-    conexao = abrir_conexao(caminho_db)
+def conn(base: Path) -> Iterator[sqlite3.Connection]:
+    conexao = abrir_conexao(base)
     try:
         yield conexao
     finally:
