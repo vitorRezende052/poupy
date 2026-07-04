@@ -85,14 +85,13 @@ A janela principal reúne tudo em uma tela:
 - **Total do mês:** o número em destaque mostra quanto foi gasto no mês
   selecionado.
 - **Novo gasto:** clique em "Novo gasto" (ou use `Ctrl+N`) para abrir o
-  formulário. Informe valor, categoria, descrição (opcional) e data. Se
-  precisar de uma categoria que ainda não existe, use "Nova categoria" ali
-  mesmo, sem sair do fluxo.
+  formulário. Informe valor, categoria, descrição (opcional) e data. A
+  categoria é escolhida em um dropdown com as categorias existentes.
 - **Editar ou excluir:** dê um duplo clique em um lançamento da lista para
   reabrir o formulário já preenchido. A exclusão pede confirmação.
 - **Categorias:** o botão "Categorias" abre a tela de gestão, onde é possível
-  renomear e excluir categorias (não é possível excluir uma categoria que já
-  tenha gastos vinculados).
+  criar, renomear e excluir categorias (não é possível excluir uma categoria
+  que já tenha gastos vinculados).
 - **Gráficos:** na parte inferior, os gráficos de gastos por categoria e de
   evolução mensal se atualizam conforme o mês selecionado.
 
