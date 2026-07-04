@@ -165,3 +165,9 @@ Na tela de configurações (aberta pelo botão de engrenagem ⚙️), a seção
 6. Type hints em tudo; `mypy` em modo strict. Evitar `Any`; deixar os tipos pegarem os erros cedo
 7. Manter a UI separada da lógica e dos dados: a UI nunca executa SQL, toda comunicação com o banco passa pela camada de serviço/repositório tipada
 8. Ser conciso. Manter o README mínimo. IMPORTANTE: nunca usar emojis, exceto o ícone de engrenagem (⚙️) usado para representar as configurações na UI
+
+## Plan
+
+A nova feature a ser implementada é o **armazenamento de dados e base ativa**,
+especificado na seção acima. O plano de implementação faseado, com critérios de
+sucesso e testes por fase, está em @docs/PLAN.md — seguir esse plano ao implementar.
