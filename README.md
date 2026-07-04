@@ -101,15 +101,46 @@ em centavos inteiros.
 
 ## Onde os dados ficam salvos
 
-O Poupy grava tudo em um único arquivo SQLite, num diretório de dados do
-sistema obtido via `QStandardPaths.AppDataLocation`:
+O Poupy guarda tudo em uma **base**: uma pasta escolhida por você que contém um
+único arquivo SQLite (`poupy.db`). Na primeira execução, o app explica isso e já
+sugere um local padrão (`Documentos/Poupy`); você pode confirmar ou escolher
+outra pasta pelo seletor nativo.
 
-- **Windows:** `%APPDATA%\Poupy\Poupy\poupy.db`
-- **macOS:** `~/Library/Application Support/Poupy/poupy.db`
-- **Linux:** `~/.local/share/Poupy/poupy.db`
+O caminho da base ativa é lembrado num pequeno arquivo de configuração do
+sistema (`config.json`), gravado separadamente dos seus dados:
 
-O arquivo é criado no primeiro uso e preservado entre atualizações do app.
-Para fazer backup, basta copiar esse arquivo.
+- **Windows:** `%APPDATA%\Poupy\config.json`
+- **macOS:** `~/Library/Application Support/Poupy/config.json`
+- **Linux:** `~/.config/poupy/config.json`
+
+### Backup
+
+Você é o dono dos dados e o responsável pelo backup. Para fazer backup, **feche
+o app e copie a pasta da base** (a que contém o `poupy.db`) para onde quiser,
+inclusive uma pasta de nuvem como OneDrive, Google Drive ou Dropbox. Feche o app
+antes de copiar para garantir um arquivo íntegro.
+
+Atenção: use a nuvem como destino de backup, mas evite abrir a MESMA base
+sincronizada em dois computadores ao mesmo tempo - isso pode corromper o banco.
+
+### Trocar de base ou usar em outro computador
+
+Nas configurações (botão de engrenagem ⚙️), a seção "Armazenamento de dados" mostra
+a pasta atual e permite "Usar outra pasta...":
+
+- Escolher uma pasta **vazia** cria uma base nova, do zero.
+- Escolher uma pasta que já contém `poupy.db` **abre aquela base existente**.
+
+Trocar de base é **não-destrutivo**: a base anterior continua intacta na pasta
+antiga, e você pode voltar a ela apontando o app de volta para aquela pasta.
+Para levar seus dados a outro computador, copie a pasta da base e, no outro
+computador, use "Usar outra pasta..." apontando para a cópia.
+
+### Atualização
+
+Para atualizar, basta substituir o executável. Seus dados permanecem intactos,
+porque vivem em uma pasta separada (a base) e o app apenas guarda o ponteiro
+para ela.
 
 ## Estrutura do projeto
 
@@ -165,6 +196,9 @@ Notas:
   inicialização mais lenta), remova o bloco `COLLECT` de `poupy.spec` e passe
   `a.binaries` e `a.datas` diretamente no `EXE`. O modo onedir é o recomendado
   para aplicações Qt.
+- O executável não é assinado. Na primeira execução no Windows, o SmartScreen
+  pode exibir um aviso; escolha "Mais informações" e depois "Executar assim
+  mesmo" para abrir o app.
 
 ## Licença
 
