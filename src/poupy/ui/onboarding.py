@@ -1,39 +1,42 @@
-"""Dialogo de primeira execucao: escolher a pasta da base ativa.
+"""Dialogo de primeira execucao: criar uma base nova ou abrir um .db existente.
 
-Este e o UNICO ponto em que o usuario escolhe a pasta da base. Nao ha tela de
-configuracoes: para trocar de base, fecha-se o app, move-se/apaga-se o poupy.db
-(ou o config.json) e reabre-se, caindo aqui de novo.
+Este e o UNICO ponto em que o usuario escolhe a base. Nao ha tela de
+configuracoes: para trocar de base, fecha-se o app, apaga-se o config.json (ou
+move-se o .db) e reabre-se, caindo aqui de novo.
 """
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 
 from PySide6.QtCore import QStandardPaths
 from PySide6.QtWidgets import (
     QDialog,
-    QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from poupy.config import gravar_config
-from poupy.db.connection import abrir_conexao, fechar_conexao, validar_escrita
+from poupy.db.connection import (
+    BaseInvalida,
+    abrir_conexao,
+    fechar_conexao,
+    validar_escrita,
+)
 
 _EXPLICACAO = (
-    "Seus dados ficam guardados nesta maquina, num arquivo poupy.db dentro da "
-    "pasta que voce escolher. Voce e o responsavel pelo backup: basta fechar o "
-    "app e copiar a pasta da base.\n\n"
-    "Voce pode usar uma pasta de nuvem (OneDrive, Google Drive, Dropbox), mas "
-    "evite abrir a mesma base em dois computadores ao mesmo tempo."
+    "Seus dados ficam nesta máquina, num arquivo .db. Você é o responsável pelo "
+    "backup: basta fechar o app e copiar o arquivo."
 )
+
+_NOME_BASE = "poupy.db"
 
 
 def _pasta_padrao() -> Path:
@@ -44,10 +47,11 @@ def _pasta_padrao() -> Path:
 
 
 class OnboardingDialog(QDialog):
-    """Coleta a pasta da base, cria/abre a base e grava o ponteiro.
+    """Cria uma base nova ou abre um .db existente e grava o ponteiro.
 
-    Apos exec() == Accepted, ``base`` traz a pasta escolhida. Cancelar deixa
-    ``base`` como None e nao grava nada.
+    Comeca numa pagina de escolha (criar OU abrir). Apos exec() == Accepted,
+    ``base`` traz o caminho do arquivo .db escolhido. Cancelar deixa ``base``
+    como None e nao grava nada.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -56,60 +60,94 @@ class OnboardingDialog(QDialog):
         self.setWindowTitle("Bem-vindo ao Poupy")
         self.setModal(True)
 
+        self._paginas = QStackedWidget()
+        self._paginas.addWidget(self._pagina_escolha())
+        self._paginas.addWidget(self._pagina_criar())
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._paginas)
+
+    def _pagina_escolha(self) -> QWidget:
         explicacao = QLabel(_EXPLICACAO)
         explicacao.setWordWrap(True)
 
+        criar = QPushButton("Criar base nova")
+        criar.clicked.connect(lambda: self._paginas.setCurrentIndex(1))
+        abrir = QPushButton("Abrir base existente")
+        abrir.clicked.connect(self._abrir)
+        cancelar = QPushButton("Cancelar")
+        cancelar.clicked.connect(self.reject)
+
+        pagina = QWidget()
+        layout = QVBoxLayout(pagina)
+        layout.addWidget(QLabel("Como você quer começar?"))
+        layout.addWidget(explicacao)
+        layout.addWidget(criar)
+        layout.addWidget(abrir)
+        layout.addWidget(cancelar)
+        return pagina
+
+    def _pagina_criar(self) -> QWidget:
         self._campo = QLineEdit(str(_pasta_padrao()))
-        botao_escolher = QPushButton("Escolher pasta...")
-        botao_escolher.clicked.connect(self._escolher)
+        escolher = QPushButton("Escolher pasta...")
+        escolher.clicked.connect(self._escolher_pasta)
         linha = QHBoxLayout()
         linha.addWidget(self._campo, 1)
-        linha.addWidget(botao_escolher)
+        linha.addWidget(escolher)
 
-        botoes = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        botoes.button(QDialogButtonBox.StandardButton.Ok).setText("Comecar")
-        botoes.accepted.connect(self.accept)
-        botoes.rejected.connect(self.reject)
+        voltar = QPushButton("Voltar")
+        voltar.clicked.connect(lambda: self._paginas.setCurrentIndex(0))
+        criar = QPushButton("Criar")
+        criar.setDefault(True)
+        criar.clicked.connect(self._criar)
+        botoes = QHBoxLayout()
+        botoes.addWidget(voltar)
+        botoes.addStretch(1)
+        botoes.addWidget(criar)
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Onde guardar seus dados?"))
-        layout.addWidget(explicacao)
+        pagina = QWidget()
+        layout = QVBoxLayout(pagina)
+        layout.addWidget(QLabel("Onde criar sua base?"))
         layout.addLayout(linha)
-        layout.addWidget(botoes)
+        layout.addLayout(botoes)
+        return pagina
 
-    def _escolher(self) -> None:
+    def _escolher_pasta(self) -> None:
         pasta = QFileDialog.getExistingDirectory(
             self, "Escolher pasta da base", self._campo.text()
         )
         if pasta:
             self._campo.setText(pasta)
 
-    def accept(self) -> None:
+    def _criar(self) -> None:
         texto = self._campo.text().strip()
         if not texto:
             QMessageBox.warning(self, "Poupy", "Escolha uma pasta para guardar os dados.")
             return
-        pasta = Path(texto)
-
-        if not validar_escrita(pasta):
+        db_path = Path(texto) / _NOME_BASE
+        if not validar_escrita(db_path):
             QMessageBox.warning(
-                self, "Poupy", "Sem permissao de escrita nessa pasta. Escolha outra."
+                self, "Poupy", "Sem permissão de escrita nessa pasta. Escolha outra."
             )
             return
+        self._confirmar(db_path)
 
+    def _abrir(self) -> None:
+        arquivo, _ = QFileDialog.getOpenFileName(
+            self, "Abrir base do Poupy", str(_pasta_padrao()), "Bancos do Poupy (*.db)"
+        )
+        if arquivo:
+            self._confirmar(Path(arquivo))
+
+    def _confirmar(self, db_path: Path) -> None:
+        """Abre/valida a base, grava o ponteiro e aceita o dialogo."""
         try:
-            conn = abrir_conexao(pasta)
-        except sqlite3.DatabaseError:
-            QMessageBox.warning(
-                self,
-                "Poupy",
-                "Essa pasta contem um poupy.db invalido ou corrompido. Escolha outra.",
-            )
+            conn = abrir_conexao(db_path)
+        except BaseInvalida as erro:
+            QMessageBox.warning(self, "Poupy", str(erro))
             return
         fechar_conexao(conn)
 
-        gravar_config(pasta)
-        self.base = pasta
-        super().accept()
+        gravar_config(db_path)
+        self.base = db_path
+        self.accept()

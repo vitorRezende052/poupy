@@ -13,7 +13,7 @@
 - App desktop em Python com PySide6 (Qt 6), multiplataforma (Windows, macOS, Linux)
 - Front-end: widgets Qt via PySide6; estilização com QSS (tema próprio para um visual elegante); gráficos com `pyqtgraph`
 - Arquitetura em camadas dentro de um único processo: a UI (telas e widgets) é separada da lógica. Toda a lógica de negócio e o acesso a dados ficam numa camada de serviço/repositório tipada; a UI nunca executa SQL direto, sempre chama o serviço
-- Banco: SQLite via módulo `sqlite3` da stdlib, um único arquivo local na máquina do usuário (`poupy.db`, sem dependência extra). O caminho da pasta de dados NÃO é fixo em `AppDataLocation`: é definido pelo usuário e resolvido pela camada de base ativa descrita em "Armazenamento de dados e base ativa". Mudanças de schema tratadas com migrações simples e versionadas via `PRAGMA user_version`
+- Banco: SQLite via módulo `sqlite3` da stdlib, um único arquivo local na máquina do usuário (um arquivo `.db`, sem dependência extra). O caminho do arquivo `.db` NÃO é fixo em `AppDataLocation`: o usuário cria uma base nova ou abre um `.db` existente, e o caminho é resolvido pela camada de base ativa descrita em "Armazenamento de dados e base ativa". Mudanças de schema tratadas com migrações simples e versionadas via `PRAGMA user_version`
 - Estrutura (`src/` layout): `poupy/ui` (telas e widgets Qt), `poupy/services` (lógica de negócio), `poupy/db` (conexão, repositórios e migrações), `poupy/models` (dataclasses tipadas). Ponto de entrada em `poupy/__main__.py`
 - Ambiente e dependências: `uv` (`uv init`, `uv add`, `uv run`). Lint e formatação com `ruff`. Tipos com `mypy` em modo strict. Testes com `pytest` e `pytest-qt`
 - Empacotamento e distribuição: `PyInstaller` para as três plataformas
@@ -26,11 +26,12 @@ com qual base trabalhar. Ela substitui qualquer suposição anterior de que o
 
 ### Conceitos
 
-- **Base**: uma pasta que contém o arquivo `poupy.db` (e, no futuro, backups e
-  anexos). O app opera sobre UMA base ativa por vez.
+- **Base**: um arquivo `.db` (o banco em si), criado ou escolhido pelo usuário,
+  com nome livre e em qualquer pasta. Os arquivos sidecar do WAL (`-wal`/`-shm`)
+  vivem ao lado dele, na mesma pasta. O app opera sobre UMA base ativa por vez.
 - **Ponteiro da base ativa**: um `config.json` gravado no diretório de
-  configuração do sistema operacional, FORA da pasta de dados, apontando para a
-  pasta da base ativa.
+  configuração do sistema operacional, FORA da pasta de dados, apontando para o
+  ARQUIVO `.db` da base ativa.
 
 ### Invariante crítico: o ponteiro fica no diretório de config do SO
 
@@ -40,80 +41,124 @@ com qual base trabalhar. Ela substitui qualquer suposição anterior de que o
   - **Windows** (foco principal): `%APPDATA%\Poupy\config.json`
   - **Linux**: `~/.config/poupy/config.json`
   - **macOS**: `~/Library/Application Support/Poupy/config.json`
-- Conteúdo mínimo: `{ "activeDataPath": "<caminho absoluto da pasta de dados>" }`.
+- Conteúdo mínimo: `{ "activeDataPath": "<caminho absoluto do arquivo .db>" }`.
 - INVARIANTE: o ponteiro NUNCA pode ficar dentro da pasta de dados. Se ficasse,
   cai-se num paradoxo ovo-e-galinha: o app precisaria já saber onde estão os
   dados para ler o ponteiro que diz onde estão os dados. Por isso o ponteiro
   mora no diretório de config do SO e a pasta de dados é separada.
 - Distinção clara: diretório de config do SO = casa do `config.json` (ponteiro);
-  pasta de dados (escolhida pelo usuário) = casa do `poupy.db` (base).
+  o arquivo `.db` (criado/escolhido pelo usuário, com nome livre) = a base.
 
 ### Primeira execução (onboarding)
 
 Disparar o fluxo de primeira execução quando não há uma base ativa utilizável:
 `activeDataPath` ausente (config inexistente, ilegível ou sem a chave) OU o
-`poupy.db` apontado pelo config não existe mais (pasta apagada, HD externo
+arquivo `.db` apontado pelo config não existe mais (apagado, HD externo
 desconectado, nuvem ainda não sincronizada). Neste último caso, SEMPRE
-re-perguntar via onboarding e NUNCA recriar silenciosamente um `poupy.db` vazio
-no mesmo caminho: isso enganaria o usuário fazendo parecer que os dados sumiram
-quando a pasta está apenas temporariamente inacessível. Passos:
+re-perguntar via onboarding e NUNCA recriar silenciosamente um `.db` vazio no
+mesmo caminho: isso enganaria o usuário fazendo parecer que os dados sumiram
+quando o arquivo está apenas temporariamente inacessível.
 
-1. Exibir uma explicação breve: os dados ficam guardados localmente; o usuário é
-   responsável pelo backup (basta copiar a pasta da base).
-2. Oferecer um local padrão sensato JÁ PREENCHIDO, sem obrigar o usuário a
-   decidir do zero: `Documentos/Poupy` (derivar `Documentos` de
-   `QStandardPaths.DocumentsLocation`).
-3. Oferecer um botão que abre o seletor NATIVO de pastas
-   (`QFileDialog.getExistingDirectory`) para escolher outro local.
-4. Ao confirmar: validar permissão de escrita na pasta -> criar/abrir a base
-   (`poupy.db`, aplicando migrações) -> gravar `activeDataPath` no `config.json`.
+O onboarding oferece DOIS caminhos: criar uma base nova ou abrir um arquivo `.db`
+já existente (de outra instância, cópia ou backup). Passos:
 
-### Trocar de pasta da base (sem tela de configurações)
+1. Exibir uma explicação breve: os dados ficam guardados localmente, num arquivo
+   `.db`; o usuário é responsável pelo backup (basta fechar o app e copiar o
+   arquivo).
+2. Criar base nova (fluxo padrão): oferecer um local padrão sensato JÁ
+   PREENCHIDO — `Documentos/Poupy` (derivar `Documentos` de
+   `QStandardPaths.DocumentsLocation`) — e um botão que abre o seletor NATIVO de
+   pastas (`QFileDialog.getExistingDirectory`) para escolher outra pasta; cria-se
+   um `poupy.db` dentro dela.
+3. Abrir base existente: um botão que abre o seletor NATIVO de arquivos
+   (`QFileDialog.getOpenFileName`, filtro `*.db`) para apontar diretamente para
+   um arquivo `.db` já existente, com qualquer nome e em qualquer pasta.
+4. Ao confirmar CRIAR: validar permissão de escrita na pasta -> criar o `.db`
+   (gravar o `application_id` do Poupy e aplicar migrações) -> gravar o caminho
+   do arquivo em `activeDataPath`.
+5. Ao confirmar ABRIR: validar que o arquivo é um banco Poupy legível (ver
+   "Validação da base ao abrir") -> aplicar migrações se for base antiga ->
+   gravar o caminho do arquivo em `activeDataPath`.
 
-DECISÃO DE DESIGN: o onboarding é o ÚNICO ponto em que o usuário escolhe a pasta
-da base. NÃO existe tela de configurações nem botão de engrenagem para troca de
-base; NÃO há troca de conexão "a quente" com a UI carregada. Isso mantém o app
-simples e evita UI de gerência de base que não foi pedida.
+### Validação da base ao abrir
 
-Para trocar de pasta, apontar para uma cópia ou restaurar um backup em outro
-local, o fluxo é manual e NÃO-DESTRUTIVO: fechar o app -> mover/apagar o
-`poupy.db` da pasta atual (ou apagar o `config.json`) -> reabrir o app, que cai
-no onboarding e deixa escolher a nova pasta. A base antiga permanece intacta
-onde estava, e o usuário pode voltar a ela apontando o onboarding de volta para
-aquela pasta.
+Ao apontar para um arquivo `.db` (no onboarding, ao abrir um existente, ou no
+boot ao reabrir a base do `config.json`), validar em CAMADAS, NESTA ORDEM. A
+ordem é o ponto crítico: confirmar a IDENTIDADE do arquivo ANTES de migrar.
+
+1. **É um SQLite íntegro?** `PRAGMA integrity_check`. Um `.db` pode ser um
+   arquivo qualquer renomeado ou um banco truncado. Se falhar, recusar ("o
+   arquivo não é um banco válido").
+2. **É um banco do Poupy?** `PRAGMA application_id` comparado com a constante do
+   Poupy (gravada na criação da base). Se não bate, recusar ("não é um banco do
+   Poupy") — assim um `.db` de outro programa é rejeitado sem depender de
+   adivinhar pela estrutura das tabelas.
+3. **Não é de versão futura?** Se `PRAGMA user_version` for MAIOR que a última
+   migração conhecida, recusar ("base criada por uma versão mais nova do Poupy;
+   atualize o app"). NUNCA rebaixar nem migrar para trás.
+4. **Só então migrar.** `aplicar_migracoes` leva bases antigas para frente.
+5. **Rede final:** conferir que as tabelas esperadas existem (`categoria`,
+   `gasto`).
+
+INVARIANTE: validar identidade (passos 1-3) ANTES de aplicar migrações. Se as
+migrações rodassem primeiro num arquivo alheio, criariam as tabelas do Poupy
+DENTRO do arquivo do usuário, sujando-o antes de o app perceber que não era um
+banco Poupy.
+
+Distinção criar vs. abrir: ao CRIAR uma base nova, o arquivo é novo/vazio —
+grava-se o `application_id` do Poupy e aplicam-se as migrações. Ao ABRIR um
+arquivo existente, ele passa pelas camadas acima antes de qualquer escrita.
+
+### Trocar de base (sem tela de configurações)
+
+DECISÃO DE DESIGN: o onboarding é o ÚNICO ponto em que o usuário escolhe a base.
+NÃO existe tela de configurações nem botão de engrenagem para troca de base; NÃO
+há troca de conexão "a quente" com a UI carregada. Isso mantém o app simples e
+evita UI de gerência de base que não foi pedida.
+
+Para trocar de base, apontar para uma cópia ou restaurar um backup, o fluxo é
+manual e NÃO-DESTRUTIVO: fechar o app -> apagar o `config.json` (ou mover/apagar
+o `.db` atual) -> reabrir o app, que cai no onboarding, onde se cria uma base
+nova OU se abre um `.db` existente (inclusive o de outro local, cópia ou
+backup). A base antiga permanece intacta onde estava, e o usuário pode voltar a
+ela abrindo aquele arquivo de novo pelo onboarding.
 
 ### Fora de escopo (decisões de design - NÃO implementar)
 
 - SEM tela de configurações / botão de engrenagem para troca de base: o
-  onboarding é o único ponto de escolha de pasta (ver acima).
+  onboarding é o único ponto de escolha de base — criar OU abrir arquivo (ver
+  acima).
 - SEM função de "migrar/mover dados": trocar de base nunca move nem apaga a base
-  antiga.
-- SEM botão de exportar/importar backup: backup = o usuário copia a pasta
-  manualmente com o app fechado.
-- Replicar uma base = copiar a pasta com o app fechado e apontar o app para a
-  cópia pelo onboarding (apagando o `config.json` ou o `poupy.db` atual). NÃO
-  criar UI dedicada para isso.
+  antiga. Abrir um `.db` existente APONTA o ponteiro para ele — não copia nem
+  importa nada.
+- SEM botão de exportar/importar backup: backup = o usuário copia o arquivo
+  `.db` manualmente com o app fechado.
+- Replicar uma base = copiar o arquivo `.db` com o app fechado e abri-lo pelo
+  onboarding (apagando o `config.json` ou o `.db` atual). NÃO criar UI dedicada
+  para isso.
 
 ### Invariantes e cuidados técnicos de SQLite/WAL
 
 - **Modo WAL + checkpoint ao fechar**: usar `PRAGMA journal_mode=WAL`. Ao
   encerrar o processo, executar checkpoint (`PRAGMA wal_checkpoint(TRUNCATE)`) e
-  fechar a conexão de forma limpa, para que o `poupy.db` fique completo e
-  íntegro. Isso torna o modelo "fechar o app + copiar a pasta" um backup
+  fechar a conexão de forma limpa, para que o arquivo `.db` fique completo e
+  íntegro. Isso torna o modelo "fechar o app + copiar o arquivo" um backup
   confiável.
-- **Arquivos sidecar do WAL**: `poupy.db-wal` e `poupy.db-shm` existem em
-  runtime. A detecção de "base existente" deve olhar SOMENTE o `poupy.db`.
-  Qualquer cópia de dados deve ocorrer com o app fechado (ou após checkpoint e
-  fechamento da conexão).
-- **Validação da pasta escolhida**: verificar permissão de escrita antes de
-  gravar o ponteiro; tratar caminhos de forma cross-platform (`pathlib.Path`).
-- **Validação da base ao abrir**: confirmar que o `poupy.db` é um banco Poupy
-  legível; aplicar as migrações de schema (`PRAGMA user_version`) se um app mais
-  novo abrir uma base antiga.
+- **Arquivos sidecar do WAL**: o SQLite gera `<arquivo>.db-wal` e
+  `<arquivo>.db-shm` ao lado do `.db` escolhido, em runtime; o usuário nunca os
+  traz nem copia. A detecção de "base existente" deve olhar SOMENTE o arquivo
+  `.db`. Qualquer cópia de dados deve ocorrer com o app fechado (ou após
+  checkpoint e fechamento da conexão).
+- **Validação de escrita**: verificar permissão de escrita na PASTA que contém o
+  `.db` (é lá que o WAL será criado) antes de gravar o ponteiro; tratar caminhos
+  de forma cross-platform (`pathlib.Path`).
+- **Validação da base ao abrir**: ver a subseção "Validação da base ao abrir"
+  acima — validar identidade (SQLite íntegro + banco Poupy + versão não-futura)
+  ANTES de aplicar as migrações de schema (`PRAGMA user_version`).
 - **Config ausente/corrompido ou base sumida**: se `config.json` sumir ou
   estiver ilegível (ex.: o usuário levou só o `.exe` para outra máquina), ou se
-  o `poupy.db` apontado não existir mais, cair naturalmente no fluxo de primeira
-  execução (sem recriar base silenciosamente).
+  o arquivo `.db` apontado não existir mais, cair naturalmente no fluxo de
+  primeira execução (sem recriar base silenciosamente).
 - **Pasta em nuvem (Google Drive / OneDrive / Dropbox)**: suportada como destino
   de backup. Existe o risco de corromper o SQLite ao abrir a mesma base
   sincronizada em duas máquinas ao mesmo tempo; como a escolha de pasta agora é
@@ -124,7 +169,7 @@ aquela pasta.
 
 - Alvo de distribuição: um executável único (`Poupy.exe`), sem instalador e sem
   desinstalador. Atualização = substituir o `.exe`; os dados permanecem intactos
-  porque vivem em pasta separada (a base) + ponteiro em `%APPDATA%\Poupy`.
+  porque vivem no arquivo `.db` (a base) + ponteiro em `%APPDATA%\Poupy`.
 - Driver do SQLite embutido: nesta stack o `sqlite3` é da biblioteca padrão do
   Python e o PyInstaller já o embute no bundle - NÃO há módulo nativo extra para
   reempacotar (ao contrário de Electron, que exigiria rebuild do módulo nativo,
@@ -169,6 +214,7 @@ aquela pasta.
 
 ## Plan
 
-A nova feature a ser implementada é o **armazenamento de dados e base ativa**,
-especificado na seção acima. O plano de implementação faseado, com critérios de
-sucesso e testes por fase, está em @docs/PLAN.md — seguir esse plano ao implementar.
+A base como arquivo `.db` está implementada: o onboarding cria uma base nova OU
+abre um `.db` existente, com validação em camadas ao abrir (identidade antes de
+migrar), conforme a seção "Armazenamento de dados e base ativa" acima (fonte de
+verdade). O histórico faseado do trabalho está em @docs/PLAN.md.

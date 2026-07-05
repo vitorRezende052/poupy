@@ -1,111 +1,128 @@
-# Plano de implementação: base ativa
+# Plano de implementação: base como arquivo `.db`
 
-Plano faseado para implementar a seção "Armazenamento de dados e base ativa" do
-`CLAUDE.md`. Cada fase tem critérios de sucesso a marcar antes de seguir (ver
-"Estratégia" no `CLAUDE.md`). As fases são incrementais e independentes o
-suficiente para revisão isolada.
+Plano faseado para evoluir a seção "Armazenamento de dados e base ativa" do
+`CLAUDE.md`. A base ativa (versão pasta) já está implementada; esta feature muda
+o modelo para **base = um arquivo `.db`** e permite que o usuário **abra um
+arquivo `.db` existente** pelo onboarding (além de criar um novo), com
+**validação robusta ao abrir** (identidade antes de migrar).
 
-Estado atual a substituir: `db/connection.py:caminho_banco()` usa
-`AppDataLocation` direto; `__main__.py` abre a conexão fixa; não há WAL nem
-checkpoint; não há config nem onboarding. (Não há tela de configurações e, por
+Cada fase tem critérios de sucesso a marcar antes de seguir (ver "Estratégia" no
+`CLAUDE.md`). As fases são incrementais e independentes o suficiente para revisão
+isolada.
+
+Estado atual a substituir: a base é uma PASTA e o `poupy.db` é um nome fixo
+dentro dela (`connection.py:caminho_banco(base) = base / "poupy.db"`); o
+`config.json` guarda a pasta; o onboarding usa `QFileDialog.getExistingDirectory`
+e só cria base; `abrir_conexao` migra ANTES de validar o schema; não há
+`application_id` nem `integrity_check`. (Não há tela de configurações e, por
 decisão de design, não haverá — ver "Fora de escopo".)
 
-## Fase 1 - Camada de configuração (ponteiro)
+## Fase 1 - Base = arquivo `.db` (mudança de modelo)
 
-Criar `poupy/config.py` com a leitura/escrita do `config.json` no diretório de
-config do SO.
+Mover o conceito de base de "pasta que contém `poupy.db`" para "o próprio arquivo
+`.db`, com nome livre e em qualquer pasta". Os sidecars do WAL (`-wal`/`-shm`)
+são gerados pelo SQLite ao lado do arquivo escolhido.
 
-INVARIANTE: o ponteiro fica no diretório de config do SO, FORA da pasta de dados
-(senão vira paradoxo ovo-e-galinha - o app não teria como descobrir onde estão os
-dados). Caminhos por plataforma: Windows `%APPDATA%\Poupy\config.json`; Linux
-`~/.config/poupy/config.json`; macOS `~/Library/Application Support/Poupy/config.json`.
+- [ ] `config.py`: `active_data_path` passa a ser o caminho do ARQUIVO `.db`
+      (não da pasta). Ajustar docstrings; `gravar_config`/`ler_config` continuam
+      iguais (só muda o que o caminho aponta, absoluto via `resolve()`).
+- [ ] `db/connection.py`: remover `caminho_banco(base)`; `abrir_conexao` passa a
+      receber o caminho do arquivo `.db` e abri-lo diretamente.
+- [ ] `base_existe(db_path) -> bool` checa a existência do ARQUIVO `.db`
+      (ignora os sidecars `-wal`/`-shm`).
+- [ ] `validar_escrita(db_path) -> bool` verifica permissão de escrita na PASTA
+      que contém o `.db` (`db_path.parent`) — é lá que o WAL será criado —,
+      criando a pasta se necessário, cross-platform (`pathlib`).
+- [ ] `__main__.py` e `onboarding.py` passam a tratar `active_data_path`/`base`
+      como caminho de arquivo `.db`.
+- Testes: `config` faz round-trip de um caminho de arquivo; `base_existe`
+  distingue arquivo presente de ausente e ignora sidecars; `validar_escrita`
+  distingue pasta gravável de somente-leitura a partir do caminho do arquivo.
 
-- [x] `caminho_config() -> Path` usa `QStandardPaths.AppConfigLocation`, cria o
-      diretório e retorna `<dir>/config.json`.
-- [x] `ler_config() -> Config | None` retorna a dataclass com `active_data_path`
-      ou `None` quando o arquivo falta, é ilegível ou não tem a chave.
-- [x] `gravar_config(active_data_path: Path) -> None` grava
-      `{ "activeDataPath": "<abs>" }` (JSON, caminho absoluto).
-- [x] Config ausente/corrompido nunca lança para o chamador: retorna `None`.
-- Testes: round-trip grava/le; arquivo inexistente -> `None`; JSON invalido ->
-  `None`; chave ausente -> `None`.
+## Fase 2 - `application_id` + validação em camadas (identidade antes de migrar)
 
-## Fase 2 - Resolução da base + WAL + checkpoint no encerramento
+Endurecer a abertura para aceitar com segurança um `.db` trazido pelo usuário e
+rejeitar arquivos que não são bancos Poupy, SEM sujá-los.
 
-Mover a responsabilidade de "onde fica o `poupy.db`" para a base ativa e
-garantir shutdown limpo.
+- [ ] Definir a constante `POUPY_APPLICATION_ID` (inteiro de 32 bits fixo) e
+      gravá-la (`PRAGMA application_id`) na CRIAÇÃO de uma base nova.
+- [ ] `abrir_conexao(db_path)` distingue dois casos, ambos habilitando WAL:
+      - **Base nova** (arquivo recém-criado/vazio: `application_id == 0` e sem
+        tabelas de usuário): gravar `application_id` do Poupy e aplicar migrações.
+      - **Base existente**: rodar as camadas de validação abaixo, depois migrar.
+- [ ] Camadas de validação de uma base existente, NESTA ORDEM (identidade ANTES
+      de migrar):
+      1. `PRAGMA integrity_check` - é um SQLite íntegro? Senão, recusar.
+      2. `PRAGMA application_id` == `POUPY_APPLICATION_ID` - é um banco Poupy?
+         Senão, recusar (arquivo de outro programa).
+      3. `PRAGMA user_version` <= última migração conhecida - não é de versão
+         futura? Se for maior, recusar (base de app mais novo); NUNCA rebaixar.
+      4. Só então `aplicar_migracoes` (leva bases antigas para frente).
+      5. `_validar_schema` como rede final (tabelas `categoria`/`gasto`).
+- [ ] INVARIANTE de código: nenhuma escrita/migração ocorre antes de a identidade
+      (passos 1-3) passar. Um `.db` alheio é recusado sem ganhar tabelas do Poupy.
+- [ ] Erros distinguíveis pelo chamador (ex.: subclasses/mensagens diferentes)
+      para: não é SQLite, não é Poupy, versão futura.
+- Testes: base nova cria e grava `application_id`; base antiga (schema v0) migra
+  ao abrir; base de versão futura é recusada; arquivo corrompido é recusado;
+  `.db` de outro programa (com tabelas) é recusado E permanece intacto (sem
+  tabelas do Poupy adicionadas); reabrir base Poupy válida não re-grava nem
+  duplica dados.
 
-- [x] `db/connection.py`: `abrir_conexao` passa a receber a pasta da base e
-      abrir `<base>/poupy.db`; remover a dependência de `AppDataLocation` em
-      `caminho_banco()` (ou substituir por `caminho_banco(base: Path)`).
-- [x] Habilitar `PRAGMA journal_mode=WAL` ao abrir.
-- [x] Adicionar `fechar_conexao(conn)` que executa
-      `PRAGMA wal_checkpoint(TRUNCATE)` e `conn.close()`.
-- [x] `__main__.py` usa `fechar_conexao` no encerramento (substitui `conn.close()`).
-- [x] `base_existe(pasta) -> bool` checa SOMENTE a presença de `poupy.db`
-      (ignora `-wal`/`-shm`).
-- [x] `validar_escrita(pasta) -> bool` verifica permissão de escrita de forma
-      cross-platform (`pathlib`).
-- [x] Validar a base ao abrir: confirmar que o `poupy.db` é um banco Poupy
-      legível e aplicar as migrações (`PRAGMA user_version`) quando um app mais
-      novo abrir uma base antiga.
-- Testes: WAL ativo apos abrir; checkpoint deixa `-wal` vazio/removido; migracoes
-  aplicadas ao abrir base do zero E ao abrir base antiga; `base_existe` ignora
-  sidecars; `validar_escrita` distingue pasta gravavel de somente-leitura.
+## Fase 3 - Onboarding: criar OU abrir `.db` existente
 
-## Fase 3 - Onboarding (primeira execução)
+O onboarding continua sendo o ÚNICO ponto de escolha de base. Ganha um segundo
+caminho: abrir um arquivo `.db` já existente.
 
-Bootstrap que decide entre onboarding e abrir a base antes de montar a janela.
+- [ ] Manter o fluxo de CRIAR base inalterado: campo pré-preenchido com
+      `Documentos/Poupy` (via `DocumentsLocation`) + `getExistingDirectory`;
+      cria `poupy.db` dentro da pasta escolhida.
+- [ ] Adicionar botão "Abrir arquivo .db existente..." que abre
+      `QFileDialog.getOpenFileName` (filtro `*.db`) e aponta direto para um
+      arquivo `.db` já existente (qualquer nome/pasta).
+- [ ] Confirmar CRIAR: `validar_escrita` -> `abrir_conexao(<pasta>/poupy.db)`
+      (cria e grava `application_id`) -> `gravar_config(<arquivo>)`.
+- [ ] Confirmar ABRIR: `abrir_conexao(<arquivo escolhido>)` (valida em camadas) ->
+      `gravar_config(<arquivo>)`. Só então segue para a `MainWindow`.
+- [ ] Mensagens de aviso específicas ao abrir: "não é um banco válido", "não é um
+      banco do Poupy", "base criada por uma versão mais nova do Poupy".
+- [ ] Cancelar o onboarding encerra o app sem gravar config.
+- [ ] Boot (`__main__.py`): `active_data_path` é um arquivo; `base_existe`
+      confere o arquivo; se sumiu (apagado, HD externo/nuvem indisponível),
+      cair no onboarding SEM recriar base silenciosamente.
+- Testes (pytest-qt): sem config dispara o diálogo; config apontando para `.db`
+  inexistente dispara o diálogo (sem recriar); criar grava config e cria o `.db`
+  com `application_id`; abrir um `.db` Poupy válido grava config e abre; abrir um
+  `.db` de outro programa mostra "não é Poupy" e NÃO altera o arquivo; abrir um
+  `.db` de versão futura mostra o aviso e bloqueia.
 
-- [x] `__main__.py`: abrir o `QDialog` de onboarding antes da `MainWindow`
-      quando não há base ativa utilizável — `ler_config()` retorna `None` OU o
-      `poupy.db` apontado não existe mais. NUNCA recriar silenciosamente um
-      `poupy.db` vazio: sempre re-perguntar via onboarding.
-- [x] Diálogo explica dados locais + responsabilidade de backup; campo de pasta
-      pré-preenchido com `DocumentsLocation/Poupy`; botão que abre
-      `QFileDialog.getExistingDirectory`.
-- [x] Confirmar: `validar_escrita` -> criar/abrir base (aplica migrações) ->
-      `gravar_config`. Só então segue para a `MainWindow`.
-- [x] Cancelar o onboarding encerra o app sem gravar config.
-- [x] Onboarding cobre: config ausente OU corrompido (`ler_config() == None`,
-      ex.: usuário levou só o `.exe` para outra máquina, sem o `config.json`) E
-      config válido cujo `poupy.db` sumiu (pasta apagada, HD externo/nuvem
-      indisponível) — sem recriar base silenciosamente.
-- Testes (pytest-qt): sem config dispara o diálogo; config corrompido dispara o
-  diálogo; config válido com `poupy.db` inexistente dispara o diálogo (sem
-  recriar base); confirmar grava config e cria `poupy.db`; pasta sem permissão
-  bloqueia a confirmação com aviso.
+## Fase 4 - Docs e README
 
-## Fase 4 - Distribuição single-exe e README
-
-- [x] Publicar como executável único (`Poupy.exe`), sem instalador e sem
-      desinstalador. Atualização = substituir o `.exe`; os dados permanecem
-      intactos porque vivem em pasta separada (a base) + ponteiro em `%APPDATA%`.
-- [x] Decidir `onefile` vs. `onedir` no `poupy.spec` e alinhar README à decisão
-      (ver a tensão registrada na spec). `sqlite3` da stdlib já é embutido pelo
-      PyInstaller; sem módulo nativo extra.
-- [x] README reflete a spec: base/local dos dados, backup (fechar + copiar
-      pasta), trocar de pasta de forma manual e não-destrutiva pelo onboarding
-      (fechar app -> mover/apagar `poupy.db` ou `config.json` -> reabrir), uso em
-      outro computador, atualização (substituir `.exe`), aviso do SmartScreen.
-      (Reconferir após as fases anteriores.)
+- [ ] README reflete o modelo de arquivo: a base é um arquivo `.db`; backup =
+      fechar o app e copiar o arquivo; trocar de base pelo onboarding (criar novo
+      OU abrir um `.db` existente); usar um `.db` de outra máquina/cópia/backup;
+      atualização (substituir `.exe`); aviso do SmartScreen.
+- [ ] Reconferir o `CLAUDE.md` após as fases (definição de base, onboarding com
+      as duas opções, validação em camadas) e alinhar qualquer menção residual a
+      "pasta da base".
 
 ## Fora de escopo (NÃO implementar)
 
-- SEM tela de configurações / botão de engrenagem para troca de base: o
-  onboarding é o único ponto de escolha de pasta.
-- SEM função de "migrar/mover dados": trocar de base nunca move nem apaga a base
-  antiga.
-- SEM botão de exportar/importar backup: backup = o usuário copia a pasta
-  manualmente com o app fechado.
-- Replicar uma base = copiar a pasta com o app fechado e apontar o app para a
-  cópia pelo onboarding (apagando o `config.json` ou o `poupy.db` atual). NÃO
-  criar UI dedicada para isso.
+- SEM tela de configurações / botão de engrenagem: o onboarding é o único ponto
+  de escolha de base (criar OU abrir arquivo).
+- SEM troca de base "a quente" com a UI carregada: para trocar, fecha-se o app e
+  reabre-se, caindo no onboarding.
+- SEM função de "migrar/mover dados": abrir um `.db` existente APONTA o ponteiro
+  para ele - não copia nem importa nada; a base antiga fica intacta.
+- SEM botão de exportar/importar backup: backup = o usuário copia o arquivo `.db`
+  com o app fechado.
 
 ## Critério de conclusão global
 
-Feature concluída quando: `uv run pytest`, `uv run ruff check` e `uv run mypy`
-passam; o app roda do zero disparando onboarding; apagar/mover o `poupy.db` (ou
-o `config.json`) e reabrir dispara o onboarding de novo sem recriar base
-silenciosamente; e os dados persistem após reiniciar o app apontando para a
-mesma base.
+Feature concluída quando: `pytest`, `ruff check` e `mypy` passam; o app roda do
+zero disparando onboarding; CRIAR uma base nova funciona; ABRIR um `.db` Poupy
+existente funciona; abrir um `.db` de outro programa é recusado SEM sujar o
+arquivo; abrir um `.db` de versão futura é recusado; apagar/mover o `.db` (ou o
+`config.json`) e reabrir dispara o onboarding de novo sem recriar base
+silenciosamente; e os dados persistem após reiniciar o app apontando para o mesmo
+arquivo `.db`.

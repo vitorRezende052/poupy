@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sqlite3
 import sys
 from importlib.resources import files
 from pathlib import Path
@@ -10,18 +9,18 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from poupy.config import ler_config
-from poupy.db.connection import abrir_conexao, base_existe, fechar_conexao
+from poupy.db.connection import BaseInvalida, abrir_conexao, base_existe, fechar_conexao
 from poupy.services.gastos import GastoService
 from poupy.ui.main_window import MainWindow
 from poupy.ui.onboarding import OnboardingDialog
 
 
 def _base_ativa() -> Path | None:
-    """Pasta da base ativa utilizavel, ou None se precisa de onboarding.
+    """Arquivo .db da base ativa utilizavel, ou None se precisa de onboarding.
 
-    Precisa de onboarding quando nao ha config OU o poupy.db apontado sumiu
-    (pasta apagada, HD externo desconectado, nuvem indisponivel). Nunca recria
-    uma base silenciosamente: sempre re-pergunta via onboarding.
+    Precisa de onboarding quando nao ha config OU o arquivo .db apontado sumiu
+    (apagado, HD externo desconectado, nuvem indisponivel). Nunca recria uma
+    base silenciosamente: sempre re-pergunta via onboarding.
     """
     config = ler_config()
     if config is None or not base_existe(config.active_data_path):
@@ -52,13 +51,13 @@ def main() -> None:
 
     try:
         conn = abrir_conexao(base)
-    except sqlite3.DatabaseError:
+    except BaseInvalida as erro:
         QMessageBox.critical(
             None,
             "Poupy",
-            f"A pasta {base} contem um poupy.db invalido ou corrompido.\n\n"
-            "O Poupy nao vai abrir para nao arriscar seus dados. Verifique o "
-            "arquivo ou aponte o app para outra pasta.",
+            f"A base em {base} não pôde ser aberta:\n\n{erro}\n\n"
+            "O Poupy não vai abrir para não arriscar seus dados. Verifique o "
+            "arquivo ou aponte o app para outra base.",
         )
         sys.exit(1)
 

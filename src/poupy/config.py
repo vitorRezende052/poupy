@@ -1,9 +1,9 @@
 """Ponteiro da base ativa: leitura/escrita do config.json.
 
 O config.json fica no diretorio de configuracao do SO (AppConfigLocation),
-FORA da pasta de dados. Se ficasse dentro da base, cairia num paradoxo
-ovo-e-galinha: o app precisaria ja saber onde estao os dados para ler o
-ponteiro que diz onde estao os dados.
+FORA da base. Se ficasse ao lado dela, cairia num paradoxo ovo-e-galinha: o app
+precisaria ja saber onde estao os dados para ler o ponteiro que diz onde estao
+os dados. O ponteiro guarda o caminho do ARQUIVO .db da base ativa.
 """
 
 from __future__ import annotations
@@ -38,6 +38,6 @@ def ler_config() -> Config | None:
 
 
 def gravar_config(active_data_path: Path) -> None:
-    """Grava o ponteiro para a pasta da base ativa (caminho absoluto)."""
+    """Grava o ponteiro para o arquivo .db da base ativa (caminho absoluto)."""
     conteudo = json.dumps({"activeDataPath": str(active_data_path.resolve())})
     caminho_config().write_text(conteudo, encoding="utf-8")

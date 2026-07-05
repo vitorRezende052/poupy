@@ -74,8 +74,9 @@ uv run poupy
 ```
 
 O comando abre a janela do Poupy. Na primeira execução, o app pergunta onde
-guardar seus dados (veja [Onde os dados ficam salvos](#onde-os-dados-ficam-salvos))
-e cria a base já com algumas categorias padrão.
+guardar seus dados (veja [Onde os dados ficam salvos](#onde-os-dados-ficam-salvos)):
+você pode **criar uma base nova** (com algumas categorias padrão) ou **abrir um
+arquivo `.db`** que já exista.
 
 ## Como usar o aplicativo
 
@@ -101,10 +102,18 @@ em centavos inteiros.
 
 ## Onde os dados ficam salvos
 
-O Poupy guarda tudo em uma **base**: uma pasta escolhida por você que contém um
-único arquivo SQLite (`poupy.db`). Na primeira execução, o app explica isso e já
-sugere um local padrão (`Documentos/Poupy`); você pode confirmar ou escolher
-outra pasta pelo seletor nativo.
+O Poupy guarda tudo em uma **base**: um único arquivo SQLite `.db`, com o nome e
+a pasta que você quiser. Na primeira execução, o app explica isso e oferece duas
+opções:
+
+- **Criar base nova:** sugere um local padrão (`Documentos/Poupy`) e cria um
+  `poupy.db` na pasta que você confirmar ou escolher pelo seletor nativo.
+- **Abrir base existente:** aponta direto para um arquivo `.db` que já exista
+  (uma cópia, um backup ou a base de outro computador).
+
+Ao abrir um `.db`, o app valida o arquivo antes de usá-lo: recusa arquivos que
+não são bancos válidos, que não são bancos do Poupy ou que foram criados por uma
+versão mais nova do app - sem alterar o arquivo recusado.
 
 O caminho da base ativa é lembrado num pequeno arquivo de configuração do
 sistema (`config.json`), gravado separadamente dos seus dados:
@@ -116,42 +125,40 @@ sistema (`config.json`), gravado separadamente dos seus dados:
 ### Backup
 
 Você é o dono dos dados e o responsável pelo backup. Para fazer backup, **feche
-o app e copie a pasta da base** (a que contém o `poupy.db`) para onde quiser,
-inclusive uma pasta de nuvem como OneDrive, Google Drive ou Dropbox. Feche o app
-antes de copiar para garantir um arquivo íntegro.
+o app e copie o arquivo `.db`** para onde quiser, inclusive uma pasta de nuvem
+como OneDrive, Google Drive ou Dropbox. Feche o app antes de copiar para garantir
+um arquivo íntegro.
 
 Atenção: use a nuvem como destino de backup, mas evite abrir a MESMA base
 sincronizada em dois computadores ao mesmo tempo - isso pode corromper o banco.
 
 ### Trocar de base ou usar em outro computador
 
-O onboarding da primeira execução é o único ponto em que você escolhe a pasta da
-base; não há tela de configurações. Para apontar o app para outra pasta (uma
-cópia, um backup restaurado ou os dados em outro computador), o fluxo é manual e
+O onboarding da primeira execução é o único ponto em que você escolhe a base; não
+há tela de configurações. Para apontar o app para outra base (uma cópia, um
+backup restaurado ou os dados em outro computador), o fluxo é manual e
 **não-destrutivo**:
 
 1. Feche o app.
-2. Mova ou apague o `poupy.db` da pasta atual, ou apague o `config.json` (o
-   ponteiro; veja os caminhos acima).
-3. Reabra o app: sem uma base ativa, ele cai no onboarding e deixa você escolher
-   a nova pasta.
-   - Uma pasta **vazia** vira uma base nova, do zero.
-   - Uma pasta que já contém `poupy.db` **abre aquela base existente**.
+2. Apague o `config.json` (o ponteiro; veja os caminhos acima) ou mova o `.db`
+   atual.
+3. Reabra o app: sem uma base ativa, ele cai no onboarding, onde você **cria uma
+   base nova** ou **abre um `.db` existente** (inclusive de outra pasta, cópia ou
+   backup).
 
-A base anterior continua intacta na pasta antiga, e você pode voltar a ela
-apontando o onboarding de volta para aquela pasta. Para levar seus dados a outro
-computador, copie a pasta da base (com o app fechado) e, no outro computador,
-aponte o onboarding para a cópia.
+A base anterior continua intacta onde estava, e você pode voltar a ela abrindo
+aquele arquivo de novo pelo onboarding. Para levar seus dados a outro computador,
+copie o `.db` (com o app fechado) e, no outro computador, abra a cópia pelo
+onboarding.
 
-Se a pasta da base ficar indisponível (HD externo desconectado, nuvem ainda não
-sincronizada), o app não recria os dados por conta própria: ele volta ao
-onboarding para você reconectar a pasta ou escolher outra.
+Se o arquivo `.db` ficar indisponível (apagado, HD externo desconectado, nuvem
+ainda não sincronizada), o app não recria os dados por conta própria: ele volta
+ao onboarding para você reconectar o arquivo ou escolher outra base.
 
 ### Atualização
 
 Para atualizar, basta substituir o executável. Seus dados permanecem intactos,
-porque vivem em uma pasta separada (a base) e o app apenas guarda o ponteiro
-para ela.
+porque vivem no arquivo `.db` (a base) e o app apenas guarda o ponteiro para ele.
 
 ## Estrutura do projeto
 
@@ -199,7 +206,7 @@ uv run pyinstaller poupy.spec --noconfirm
 O resultado (modo onefile) é um único executável em `dist/`. No Windows, é
 `dist\Poupy.exe`. Para distribuir, basta esse arquivo: não há pasta de apoio
 nem instalador. Atualizar é substituir o `.exe`; seus dados não são afetados,
-porque vivem numa pasta separada (a base) com o ponteiro em `%APPDATA%\Poupy`.
+porque vivem no arquivo `.db` (a base) com o ponteiro em `%APPDATA%\Poupy`.
 
 Notas:
 

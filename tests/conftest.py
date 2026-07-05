@@ -13,7 +13,8 @@ from poupy.db.connection import abrir_conexao
 
 @pytest.fixture
 def base(tmp_path: Path) -> Path:
-    return tmp_path
+    """Caminho do arquivo .db de uma base nova (ainda inexistente)."""
+    return tmp_path / "poupy.db"
 
 
 @pytest.fixture
