@@ -164,6 +164,12 @@ ela abrindo aquele arquivo de novo pelo onboarding.
   sincronizada em duas máquinas ao mesmo tempo; como a escolha de pasta agora é
   só no onboarding (rara), não há UI dedicada de aviso nem bloqueio. No máximo,
   mencionar o risco no texto do onboarding. Não implementar lock distribuído.
+- **Índice de data e filtro por mês**: os filtros por mês usam
+  `substr(data, 1, 7) = ?`, que NÃO aproveita o índice `idx_gasto_data` (criado
+  sobre a data inteira) e faz varredura. DECISÃO DE DESIGN: manter assim — no
+  volume de um app pessoal o custo é irrelevante e a consulta fica mais simples.
+  NÃO trocar por filtro de range (`data >= 'YYYY-MM-01' AND data < proximo_mes`)
+  por antecipação; só reconsiderar se algum dia o volume realmente pesar.
 
 ### Distribuição (executável único) - implicações
 

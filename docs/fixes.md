@@ -72,18 +72,7 @@ local (`arquivo:linha`), o problema, por que importa e a correção sugerida.
 - Correção: `UNIQUE` com `COLLATE NOCASE` (via migração) ou normalizar/checar de
   forma case-insensitive na camada de serviço antes de inserir/renomear.
 
-### 6. Índice de data não acelera os filtros por mês
-
-- Local: `src/poupy/db/migrations.py:38` (`idx_gasto_data`) usado por
-  `substr(data, 1, 7) = ?` em `src/poupy/db/repository.py:80-141`
-- Problema: o índice é sobre `data` inteira; os filtros por mês usam
-  `substr(data,1,7)`, que não aproveita o índice e faz varredura.
-- Por que importa: irrelevante no volume de um app pessoal; anotado só para não
-  passar a impressão de que o índice ajuda essas consultas. Alternativa, se um
-  dia pesar: filtrar por range (`data >= 'YYYY-MM-01' AND data < proximo_mes`),
-  que usa o índice.
-
-### 7. Onboarding não menciona o risco de pasta em nuvem
+### 6. Onboarding não menciona o risco de pasta em nuvem
 
 - Local: `src/poupy/ui/onboarding.py:34-37` (`_EXPLICACAO`)
 - Problema: o CLAUDE.md pede que, no máximo, o texto do onboarding mencione o
@@ -92,7 +81,7 @@ local (`arquivo:linha`), o problema, por que importa e a correção sugerida.
 - Correção: acrescentar uma frase curta no `_EXPLICACAO` sobre não usar a mesma
   base em duas máquinas simultaneamente quando estiver em nuvem.
 
-### 8. Salvar/editar não leva o usuário ao mês do lançamento
+### 7. Salvar/editar não leva o usuário ao mês do lançamento
 
 - Local: `src/poupy/ui/main_window.py:99-115`
 - Problema: ao registrar um gasto (data padrão = hoje) enquanto se navega um mês
@@ -101,7 +90,7 @@ local (`arquivo:linha`), o problema, por que importa e a correção sugerida.
 - Correção: após salvar, selecionar o mês do gasto salvo (`gasto_salvo.data`)
   antes de `_atualizar`, para o usuário ver o que acabou de registrar.
 
-### 9. Cor de fundo dos gráficos fixa em branco
+### 8. Cor de fundo dos gráficos fixa em branco
 
 - Local: `src/poupy/ui/graficos.py:11` (`_FUNDO = "#ffffff"`)
 - Problema: a cor está acoplada ao tema claro atual. Está coerente com o QSS de
