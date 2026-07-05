@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import sys
-from importlib.resources import files
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
-from poupy.config import ler_config
+from poupy.config import ler_config, ler_tema
 from poupy.db.connection import BaseInvalida, abrir_conexao, base_existe, fechar_conexao
 from poupy.services.gastos import GastoService
+from poupy.ui import tema
 from poupy.ui.main_window import MainWindow
 from poupy.ui.onboarding import OnboardingDialog
 
@@ -43,7 +43,8 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName("Poupy")
     app.setOrganizationName("Poupy")
-    app.setStyleSheet(files("poupy.ui").joinpath("style.qss").read_text(encoding="utf-8"))
+    paleta = tema.ESCURO if ler_tema() == "escuro" else tema.CLARO
+    app.setStyleSheet(tema.qss(paleta))
 
     base = _resolver_base()
     if base is None:
@@ -62,7 +63,7 @@ def main() -> None:
         sys.exit(1)
 
     service = GastoService(conn)
-    janela = MainWindow(service)
+    janela = MainWindow(service, paleta)
     janela.show()
 
     codigo = app.exec()

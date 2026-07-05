@@ -7,6 +7,7 @@ from datetime import date
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QComboBox,
     QHBoxLayout,
     QHeaderView,
@@ -20,18 +21,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from poupy import config
 from poupy.models import Gasto
 from poupy.services.gastos import GastoService
+from poupy.ui import tema
 from poupy.ui.categorias_dialog import CategoriasDialog
 from poupy.ui.format import format_competencia, format_moeda
 from poupy.ui.gasto_dialog import GastoDialog
 from poupy.ui.graficos import GraficosWidget
+from poupy.ui.theme_toggle import ThemeToggle
 
 _COLUNAS = ("Data", "Categoria", "Descrição", "Valor")
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, service: GastoService) -> None:
+    def __init__(self, service: GastoService, paleta: tema.Paleta = tema.CLARO) -> None:
         super().__init__()
         self._service = service
         self._ano_mes = date.today().strftime("%Y-%m")
@@ -48,10 +52,16 @@ class MainWindow(QMainWindow):
         self._competencia.setObjectName("competencia")
         self._competencia.currentIndexChanged.connect(self._mudar_mes)
 
+        self._toggle_tema = ThemeToggle()
+        self._toggle_tema.set_escuro(paleta.escuro)
+        self._toggle_tema.alternado.connect(self._trocar_tema)
+
         navegador = QHBoxLayout()
         navegador.addWidget(self._btn_anterior)
         navegador.addWidget(self._competencia, 1)
         navegador.addWidget(self._btn_proximo)
+        navegador.addSpacing(12)
+        navegador.addWidget(self._toggle_tema)
 
         self._total = QLabel()
         self._total.setObjectName("total")
@@ -79,7 +89,7 @@ class MainWindow(QMainWindow):
         cabecalho = self._tabela.horizontalHeader()
         cabecalho.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-        self._graficos = GraficosWidget(self._service)
+        self._graficos = GraficosWidget(self._service, paleta)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(24, 24, 24, 24)
@@ -95,6 +105,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self._atualizar()
+
+    def _trocar_tema(self, escuro: bool) -> None:
+        """Aplica o tema em todo o app, repinta os graficos e persiste a escolha."""
+        paleta = tema.ESCURO if escuro else tema.CLARO
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            app.setStyleSheet(tema.qss(paleta))
+        self._graficos.aplicar_tema(paleta)
+        config.gravar_tema("escuro" if escuro else "claro")
 
     def _abrir_novo_gasto(self) -> None:
         dialog = GastoDialog(self._service, self)

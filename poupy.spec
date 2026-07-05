@@ -21,7 +21,6 @@ pacote = raiz / "src" / "poupy"
 a = Analysis(  # noqa: F821
     [str(pacote / "__main__.py")],
     pathex=[str(raiz / "src")],
-    datas=[(str(pacote / "ui" / "style.qss"), "poupy/ui")],
 )
 
 pyz = PYZ(a.pure)  # noqa: F821

@@ -1,9 +1,10 @@
-"""Ponteiro da base ativa: leitura/escrita do config.json.
+"""Ponteiro da base ativa e preferencias: leitura/escrita do config.json.
 
 O config.json fica no diretorio de configuracao do SO (AppConfigLocation),
 FORA da base. Se ficasse ao lado dela, cairia num paradoxo ovo-e-galinha: o app
 precisaria ja saber onde estao os dados para ler o ponteiro que diz onde estao
-os dados. O ponteiro guarda o caminho do ARQUIVO .db da base ativa.
+os dados. Guarda o caminho do ARQUIVO .db da base ativa (`activeDataPath`) e o
+tema escolhido (`theme`), que coexistem no mesmo arquivo.
 """
 
 from __future__ import annotations
@@ -28,16 +29,44 @@ def caminho_config() -> Path:
     return diretorio / "config.json"
 
 
-def ler_config() -> Config | None:
-    """Le o ponteiro da base ativa. Ausente, ilegivel ou sem a chave -> None."""
+def _ler_bruto() -> dict[str, str]:
+    """Le o config.json inteiro. Ausente, ilegivel ou nao-objeto -> {}."""
     try:
         dados = json.loads(caminho_config().read_text(encoding="utf-8"))
-        return Config(active_data_path=Path(dados["activeDataPath"]))
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(dados, dict):
+        return {}
+    return dados
+
+
+def _gravar_bruto(dados: dict[str, str]) -> None:
+    caminho_config().write_text(json.dumps(dados), encoding="utf-8")
+
+
+def ler_config() -> Config | None:
+    """Le o ponteiro da base ativa. Ausente ou sem a chave -> None."""
+    caminho = _ler_bruto().get("activeDataPath")
+    if not isinstance(caminho, str):
         return None
+    return Config(active_data_path=Path(caminho))
 
 
 def gravar_config(active_data_path: Path) -> None:
-    """Grava o ponteiro para o arquivo .db da base ativa (caminho absoluto)."""
-    conteudo = json.dumps({"activeDataPath": str(active_data_path.resolve())})
-    caminho_config().write_text(conteudo, encoding="utf-8")
+    """Grava o ponteiro para o arquivo .db da base ativa, preservando o tema."""
+    dados = _ler_bruto()
+    dados["activeDataPath"] = str(active_data_path.resolve())
+    _gravar_bruto(dados)
+
+
+def ler_tema() -> str:
+    """Le o tema salvo ('claro' ou 'escuro'); qualquer outro valor -> 'claro'."""
+    tema = _ler_bruto().get("theme")
+    return tema if tema in ("claro", "escuro") else "claro"
+
+
+def gravar_tema(nome: str) -> None:
+    """Grava o tema escolhido, preservando o ponteiro da base."""
+    dados = _ler_bruto()
+    dados["theme"] = nome
+    _gravar_bruto(dados)
