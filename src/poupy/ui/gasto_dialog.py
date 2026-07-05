@@ -70,9 +70,7 @@ class GastoDialog(QDialog):
         botoes.accepted.connect(self.accept)
         botoes.rejected.connect(self.reject)
         if gasto is not None:
-            botao_excluir = botoes.addButton(
-                "Excluir", QDialogButtonBox.ButtonRole.DestructiveRole
-            )
+            botao_excluir = botoes.addButton("Excluir", QDialogButtonBox.ButtonRole.DestructiveRole)
             botao_excluir.clicked.connect(self._excluir)
         formulario.addRow(botoes)
 
@@ -94,9 +92,7 @@ class GastoDialog(QDialog):
             self._categoria.addItem(categoria.nome, categoria.id)
 
     def _excluir(self) -> None:
-        resposta = QMessageBox.question(
-            self, "Excluir gasto", "Deseja excluir este lançamento?"
-        )
+        resposta = QMessageBox.question(self, "Excluir gasto", "Deseja excluir este lançamento?")
         if resposta != QMessageBox.StandardButton.Yes or self._gasto is None:
             return
         self._service.excluir_gasto(self._gasto.id)
@@ -124,7 +120,10 @@ class GastoDialog(QDialog):
                 )
             else:
                 self.gasto_salvo = self._service.atualizar_gasto(
-                    self._gasto.id, valor_centavos, data, int(categoria_id),
+                    self._gasto.id,
+                    valor_centavos,
+                    data,
+                    int(categoria_id),
                     self._descricao.text(),
                 )
         except ValueError as erro:

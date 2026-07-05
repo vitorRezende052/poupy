@@ -44,7 +44,13 @@ def _migracao_v1(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migracao_v1,)
+def _migracao_v2(conn: sqlite3.Connection) -> None:
+    # Unicidade de categoria sem depender de maiusculas/minusculas: "Lazer" e
+    # "lazer" passam a colidir, evitando categorias duplicadas na pratica.
+    conn.execute("CREATE UNIQUE INDEX idx_categoria_nome_nocase ON categoria(nome COLLATE NOCASE)")
+
+
+MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (_migracao_v1, _migracao_v2)
 
 
 def aplicar_migracoes(conn: sqlite3.Connection) -> None:

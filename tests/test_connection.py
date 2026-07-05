@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 
 import pytest
 
-from poupy.db import migrations
+from poupy.db import connection, migrations
 from poupy.db.connection import (
     POUPY_APPLICATION_ID,
     BaseNaoPoupy,
@@ -35,6 +36,17 @@ def test_wal_ativo_apos_abrir(base: Path) -> None:
         assert modo == "wal"
     finally:
         fechar_conexao(conn)
+
+
+def test_habilitar_wal_loga_quando_nao_engata(caplog: pytest.LogCaptureFixture) -> None:
+    # Base em memoria nunca aceita WAL (fica em "memory"): deve registrar aviso.
+    conn = sqlite3.connect(":memory:")
+    try:
+        with caplog.at_level(logging.WARNING, logger=connection.__name__):
+            connection._habilitar_wal(conn)
+    finally:
+        conn.close()
+    assert any("WAL" in registro.message for registro in caplog.records)
 
 
 def test_checkpoint_esvazia_wal_ao_fechar(base: Path) -> None:
@@ -138,8 +150,7 @@ def test_db_de_outro_programa_recusado_e_intacto(tmp_path: Path) -> None:
     assert not _wal(outro).exists()
     con = sqlite3.connect(outro)
     tabelas = {
-        linha[0]
-        for linha in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        linha[0] for linha in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     con.close()
     assert tabelas == {"clientes"}

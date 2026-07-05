@@ -36,6 +36,21 @@ def test_renomear_nome_duplicado_rejeitado(conn: sqlite3.Connection) -> None:
         service.renomear_categoria(categorias[0].id, categorias[1].nome)
 
 
+def test_criar_categoria_duplicada_ignora_maiusculas(conn: sqlite3.Connection) -> None:
+    service = GastoService(conn)
+    # "Lazer" e uma categoria-semente; "lazer" nao pode coexistir.
+    with pytest.raises(ValueError):
+        service.criar_categoria("lazer")
+
+
+def test_renomear_categoria_duplicada_ignora_maiusculas(conn: sqlite3.Connection) -> None:
+    service = GastoService(conn)
+    nova = service.criar_categoria("Viagem")
+    # Renomear para uma variante de caixa de outra categoria-semente colide.
+    with pytest.raises(ValueError):
+        service.renomear_categoria(nova.id, "LAZER")
+
+
 def test_excluir_categoria_sem_gastos(conn: sqlite3.Connection) -> None:
     service = GastoService(conn)
     nova = service.criar_categoria("Descartavel")

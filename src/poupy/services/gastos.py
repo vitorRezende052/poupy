@@ -21,18 +21,14 @@ class GastoService:
         return repository.listar_categorias(self._conn)
 
     def criar_categoria(self, nome: str) -> Categoria:
-        nome_limpo = nome.strip()
-        if not nome_limpo:
-            raise ValueError("O nome da categoria não pode ser vazio.")
+        nome_limpo = self._nome_categoria_valido(nome)
         try:
             return repository.criar_categoria(self._conn, nome_limpo)
         except sqlite3.IntegrityError as erro:
             raise ValueError(f"Já existe uma categoria chamada '{nome_limpo}'.") from erro
 
     def renomear_categoria(self, categoria_id: int, nome: str) -> None:
-        nome_limpo = nome.strip()
-        if not nome_limpo:
-            raise ValueError("O nome da categoria não pode ser vazio.")
+        nome_limpo = self._nome_categoria_valido(nome)
         try:
             repository.renomear_categoria(self._conn, categoria_id, nome_limpo)
         except sqlite3.IntegrityError as erro:
@@ -99,12 +95,19 @@ class GastoService:
         mes_atual = date.today().strftime("%Y-%m")
         primeiro = repository.primeiro_mes(self._conn) or mes_atual
         meses: list[str] = []
-        ano, mes = (int(parte) for parte in primeiro.split("-"))
-        ano_fim, mes_fim = (int(parte) for parte in mes_atual.split("-"))
+        ano, mes = map(int, primeiro.split("-"))
+        ano_fim, mes_fim = map(int, mes_atual.split("-"))
         while (ano, mes) <= (ano_fim, mes_fim):
             meses.append(f"{ano:04d}-{mes:02d}")
             ano, mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
         return meses
+
+    def _nome_categoria_valido(self, nome: str) -> str:
+        """Normaliza o nome da categoria; rejeita vazio."""
+        nome_limpo = nome.strip()
+        if not nome_limpo:
+            raise ValueError("O nome da categoria não pode ser vazio.")
+        return nome_limpo
 
     def _validar(self, valor_centavos: int, descricao: str | None) -> str | None:
         """Valida o valor e devolve a descricao normalizada (vazio vira None)."""
@@ -130,7 +133,4 @@ class GastoService:
         )
 
     def _nome_categoria(self, categoria_id: int) -> str:
-        for categoria in self.categorias():
-            if categoria.id == categoria_id:
-                return categoria.nome
-        raise ValueError(f"Categoria {categoria_id} não encontrada.")
+        return repository.nome_categoria(self._conn, categoria_id)

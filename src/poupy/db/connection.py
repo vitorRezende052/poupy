@@ -9,10 +9,13 @@ arquivo alheio com as tabelas do Poupy.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 
 from poupy.db.migrations import MIGRATIONS, aplicar_migracoes
+
+_logger = logging.getLogger(__name__)
 
 # Identidade do formato de banco do Poupy, gravada em PRAGMA application_id na
 # criacao da base. Sao os bytes ASCII de "POUY" (0x504F5559). Serve para
@@ -76,13 +79,13 @@ def abrir_conexao(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         if nova:
-            conn.execute("PRAGMA journal_mode = WAL")
+            _habilitar_wal(conn)
             _inicializar_base_nova(conn)
         else:
             # Identidade primeiro, com PRAGMAs somente-leitura: um arquivo alheio
             # ou corrompido e recusado sem ganhar WAL nem tabelas do Poupy.
             _validar_identidade(conn)
-            conn.execute("PRAGMA journal_mode = WAL")
+            _habilitar_wal(conn)
             aplicar_migracoes(conn)
             _validar_schema(conn)
     except BaseInvalida:
@@ -95,6 +98,22 @@ def fechar_conexao(conn: sqlite3.Connection) -> None:
     """Faz checkpoint do WAL e fecha, deixando o .db integro para copia."""
     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.close()
+
+
+def _habilitar_wal(conn: sqlite3.Connection) -> None:
+    """Ativa o WAL e confere se engatou.
+
+    Em alguns sistemas de arquivos de rede/nuvem o SQLite nao consegue ativar o
+    WAL e permanece em outro modo; ai o checkpoint ao fechar vira no-op e o
+    backup por copia do .db fica menos confiavel. Nesse caso, ao menos registra.
+    """
+    modo = conn.execute("PRAGMA journal_mode = WAL").fetchone()[0]
+    if modo != "wal":
+        _logger.warning(
+            "WAL nao pode ser ativado (journal_mode=%s); o backup por copia do "
+            "arquivo .db fica menos confiavel nesta pasta.",
+            modo,
+        )
 
 
 def _inicializar_base_nova(conn: sqlite3.Connection) -> None:
@@ -117,15 +136,12 @@ def _validar_identidade(conn: sqlite3.Connection) -> None:
 
     versao = conn.execute("PRAGMA user_version").fetchone()[0]
     if versao > len(MIGRATIONS):
-        raise BaseVersaoFutura(
-            "Base criada por uma versão mais nova do Poupy; atualize o app."
-        )
+        raise BaseVersaoFutura("Base criada por uma versão mais nova do Poupy; atualize o app.")
 
 
 def _validar_schema(conn: sqlite3.Connection) -> None:
     tabelas = {
-        linha[0]
-        for linha in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        linha[0] for linha in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     if not {"categoria", "gasto"} <= tabelas:
         raise BaseNaoPoupy("O arquivo não é um banco Poupy válido.")

@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
     def _abrir_novo_gasto(self) -> None:
         dialog = GastoDialog(self._service, self)
         if dialog.exec() == int(GastoDialog.DialogCode.Accepted):
+            self._ir_para_gasto_salvo(dialog)
             self._atualizar()
 
     def _abrir_categorias(self) -> None:
@@ -112,7 +113,16 @@ class MainWindow(QMainWindow):
         gasto: Gasto = item.data(Qt.ItemDataRole.UserRole)
         dialog = GastoDialog(self._service, self, gasto=gasto)
         if dialog.exec() == int(GastoDialog.DialogCode.Accepted):
+            self._ir_para_gasto_salvo(dialog)
             self._atualizar()
+
+    def _ir_para_gasto_salvo(self, dialog: GastoDialog) -> None:
+        """Seleciona o mes do gasto recem-salvo, para o usuario ver o lancamento.
+
+        Ao excluir (sem gasto_salvo), mantem o mes atual.
+        """
+        if dialog.gasto_salvo is not None:
+            self._ano_mes = dialog.gasto_salvo.data.strftime("%Y-%m")
 
     def _mes_anterior(self) -> None:
         self._competencia.setCurrentIndex(self._competencia.currentIndex() - 1)

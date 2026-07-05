@@ -30,6 +30,10 @@ def _criar_db_poupy(db_path: Path) -> Path:
     return db_path
 
 
+def test_explicacao_menciona_risco_de_nuvem() -> None:
+    assert "nuvem" in onboarding._EXPLICACAO
+
+
 # --- _base_ativa: quando disparar o onboarding (retorna None) ---
 
 
@@ -80,6 +84,44 @@ def test_criar_grava_config_e_cria_base(qtbot: QtBot, tmp_path: Path) -> None:
     con.close()
 
 
+def test_criar_em_pasta_com_base_pergunta_e_abre(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Ja existe uma base na pasta escolhida.
+    pasta = tmp_path / "dados"
+    existente = _criar_db_poupy(pasta / "poupy.db")
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+
+    dialogo = OnboardingDialog()
+    qtbot.addWidget(dialogo)
+    dialogo._campo.setText(str(pasta))
+    dialogo._criar()
+
+    # Confirmar "abrir" aponta o ponteiro para a base existente, sem recriar.
+    assert dialogo.result() == QDialog.DialogCode.Accepted
+    assert dialogo.base == existente
+    lido = ler_config()
+    assert lido is not None
+    assert lido.active_data_path == existente.resolve()
+
+
+def test_criar_em_pasta_com_base_cancelar_nao_abre(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pasta = tmp_path / "dados"
+    _criar_db_poupy(pasta / "poupy.db")
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
+
+    dialogo = OnboardingDialog()
+    qtbot.addWidget(dialogo)
+    dialogo._campo.setText(str(pasta))
+    dialogo._criar()
+
+    assert dialogo.base is None
+    assert dialogo.result() != QDialog.DialogCode.Accepted
+    assert ler_config() is None
+
+
 def test_criar_em_pasta_sem_permissao_bloqueia(
     qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -104,9 +146,7 @@ def test_criar_em_pasta_sem_permissao_bloqueia(
     assert ler_config() is None  # nada gravado
 
 
-def test_criar_sem_pasta_bloqueia(
-    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_criar_sem_pasta_bloqueia(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
     avisos = _capturar_avisos(monkeypatch)
     dialogo = OnboardingDialog()
     qtbot.addWidget(dialogo)
@@ -191,8 +231,7 @@ def test_abrir_db_de_outro_programa_bloqueia(
     # Arquivo alheio permanece intacto.
     con = sqlite3.connect(outro)
     tabelas = {
-        linha[0]
-        for linha in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        linha[0] for linha in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     con.close()
     assert tabelas == {"clientes"}
@@ -232,9 +271,7 @@ def test_resolver_base_cancelado_retorna_none(
     qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Sem base ativa -> abre o onboarding; cancelar -> None (o app encerra).
-    monkeypatch.setattr(
-        OnboardingDialog, "exec", lambda self: QDialog.DialogCode.Rejected
-    )
+    monkeypatch.setattr(OnboardingDialog, "exec", lambda self: QDialog.DialogCode.Rejected)
     assert bootstrap._resolver_base() is None
     assert ler_config() is None
 

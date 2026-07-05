@@ -29,6 +29,10 @@ def test_format_moeda(centavos: int, esperado: str) -> None:
         ("12", 1200),
         ("R$ 9,90", 990),
         ("  0,05 ", 5),
+        ("12,5", 1250),
+        (",50", 50),
+        ("10,999", 1099),  # casas alem de 2 truncam, nao arredondam
+        ("99999999999999,99", 9999999999999999),  # sem perda de precisao de float
     ],
 )
 def test_parse_moeda(texto: str, esperado: int) -> None:

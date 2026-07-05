@@ -18,6 +18,14 @@ def listar_categorias(conn: sqlite3.Connection) -> list[Categoria]:
     return [Categoria(id=linha["id"], nome=linha["nome"]) for linha in linhas]
 
 
+def nome_categoria(conn: sqlite3.Connection, categoria_id: int) -> str:
+    """Nome de uma categoria pelo id. Levanta ValueError se nao existir."""
+    linha = conn.execute("SELECT nome FROM categoria WHERE id = ?", (categoria_id,)).fetchone()
+    if linha is None:
+        raise ValueError(f"Categoria {categoria_id} não encontrada.")
+    return str(linha["nome"])
+
+
 def criar_categoria(conn: sqlite3.Connection, nome: str) -> Categoria:
     cursor = conn.execute("INSERT INTO categoria (nome) VALUES (?)", (nome,))
     conn.commit()
@@ -49,8 +57,7 @@ def inserir_gasto(
     descricao: str | None,
 ) -> int:
     cursor = conn.execute(
-        "INSERT INTO gasto (valor_centavos, data, categoria_id, descricao) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO gasto (valor_centavos, data, categoria_id, descricao) VALUES (?, ?, ?, ?)",
         (valor_centavos, data.isoformat(), categoria_id, descricao),
     )
     conn.commit()
@@ -107,8 +114,7 @@ def gastos_do_mes(conn: sqlite3.Connection, ano_mes: str) -> list[Gasto]:
 def total_do_mes(conn: sqlite3.Connection, ano_mes: str) -> int:
     """Soma em centavos dos gastos de um mes 'YYYY-MM'."""
     linha = conn.execute(
-        "SELECT COALESCE(SUM(valor_centavos), 0) AS total "
-        "FROM gasto WHERE substr(data, 1, 7) = ?",
+        "SELECT COALESCE(SUM(valor_centavos), 0) AS total FROM gasto WHERE substr(data, 1, 7) = ?",
         (ano_mes,),
     ).fetchone()
     return int(linha["total"])

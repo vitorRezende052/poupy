@@ -6,15 +6,14 @@ import sqlite3
 from pathlib import Path
 
 from poupy.db.connection import abrir_conexao
-from poupy.db.migrations import CATEGORIAS_PADRAO
+from poupy.db.migrations import CATEGORIAS_PADRAO, MIGRATIONS
 
 
 def test_schema_e_seed(conn: sqlite3.Connection) -> None:
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
 
     tabelas = {
-        linha[0]
-        for linha in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        linha[0] for linha in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
     }
     assert {"categoria", "gasto"} <= tabelas
 

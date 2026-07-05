@@ -6,11 +6,12 @@ import pyqtgraph as pg
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 from poupy.services.gastos import GastoService
+from poupy.ui import tema
 from poupy.ui.format import format_mes_curto
 
-_COR = "#2563eb"
-_FUNDO = "#ffffff"
-_EIXO = "#6b7280"
+_COR = tema.PRIMARIA
+_FUNDO = tema.SUPERFICIE
+_EIXO = tema.EIXO
 
 
 class GraficosWidget(QWidget):

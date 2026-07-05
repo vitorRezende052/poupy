@@ -80,9 +80,7 @@ class CategoriasDialog(QDialog):
         item = self._selecionada()
         if item is None:
             return
-        nome, ok = QInputDialog.getText(
-            self, "Renomear categoria", "Novo nome:", text=item.text()
-        )
+        nome, ok = QInputDialog.getText(self, "Renomear categoria", "Novo nome:", text=item.text())
         if not ok:
             return
         try:

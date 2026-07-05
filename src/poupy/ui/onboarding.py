@@ -27,22 +27,23 @@ from poupy.config import gravar_config
 from poupy.db.connection import (
     BaseInvalida,
     abrir_conexao,
+    base_existe,
     fechar_conexao,
     validar_escrita,
 )
 
 _EXPLICACAO = (
     "Seus dados ficam nesta máquina, num arquivo .db. Você é o responsável pelo "
-    "backup: basta fechar o app e copiar o arquivo."
+    "backup: basta fechar o app e copiar o arquivo. Se guardar a base numa pasta "
+    "em nuvem (Google Drive, OneDrive, Dropbox), não abra a mesma base em duas "
+    "máquinas ao mesmo tempo, para não corromper os dados."
 )
 
 _NOME_BASE = "poupy.db"
 
 
 def _pasta_padrao() -> Path:
-    documentos = QStandardPaths.writableLocation(
-        QStandardPaths.StandardLocation.DocumentsLocation
-    )
+    documentos = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
     return Path(documentos) / "Poupy"
 
 
@@ -113,9 +114,7 @@ class OnboardingDialog(QDialog):
         return pagina
 
     def _escolher_pasta(self) -> None:
-        pasta = QFileDialog.getExistingDirectory(
-            self, "Escolher pasta da base", self._campo.text()
-        )
+        pasta = QFileDialog.getExistingDirectory(self, "Escolher pasta da base", self._campo.text())
         if pasta:
             self._campo.setText(pasta)
 
@@ -125,6 +124,15 @@ class OnboardingDialog(QDialog):
             QMessageBox.warning(self, "Poupy", "Escolha uma pasta para guardar os dados.")
             return
         db_path = Path(texto) / _NOME_BASE
+        if base_existe(db_path):
+            # "Criar" nao pode abrir silenciosamente uma base ja existente: quem
+            # pediu base nova acharia que apareceram dados "do nada".
+            resposta = QMessageBox.question(
+                self, "Poupy", "Já existe uma base nesta pasta. Deseja abri-la?"
+            )
+            if resposta == QMessageBox.StandardButton.Yes:
+                self._confirmar(db_path)
+            return
         if not validar_escrita(db_path):
             QMessageBox.warning(
                 self, "Poupy", "Sem permissão de escrita nessa pasta. Escolha outra."

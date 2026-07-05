@@ -49,14 +49,16 @@ def format_centavos_editavel(centavos: int) -> str:
 def parse_moeda(texto: str) -> int:
     """Le uma entrada pt-BR ('1.234,56', '12,5', '12', 'R$ 9,90') em centavos.
 
-    Levanta ValueError se a entrada for vazia ou nao numerica.
+    Parsing com aritmetica inteira, sem ponto flutuante. Casas decimais alem de
+    duas sao truncadas ('10,999' -> R$ 10,99). Levanta ValueError se a entrada
+    for vazia ou nao numerica.
     """
     limpo = texto.strip().replace(_SIMBOLO, "").replace(" ", "").replace(".", "")
-    limpo = limpo.replace(",", ".")
     if not limpo:
         raise ValueError("Informe um valor.")
-    try:
-        valor = round(float(limpo) * 100)
-    except ValueError as erro:
-        raise ValueError(f"Valor inválido: {texto!r}") from erro
-    return valor
+    reais, _, centavos = limpo.partition(",")
+    reais = reais or "0"
+    centavos = centavos[:2].ljust(2, "0")
+    if not (reais.isdigit() and centavos.isdigit()):
+        raise ValueError(f"Valor inválido: {texto!r}")
+    return int(reais) * 100 + int(centavos)
