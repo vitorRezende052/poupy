@@ -11,3 +11,7 @@ dist/
 
 # OS
 .DS_Store
+
+# Arquivos de trabalho local (nao versionar)
+CLAUDE.md
+docs/
